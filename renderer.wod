@@ -1,0 +1,209 @@
+import "math";
+
+const int SCREEN_WIDTH = 1280;
+const int SCREEN_HEIGHT = 720;
+
+const int SCREEN_CENTER_X = SCREEN_WIDTH / 2;
+const int SCREEN_CENTER_Y = SCREEN_HEIGHT / 2;
+
+const int H_FOV = 900;
+const int TAN_HFOV_2 = 1000;
+const int TAN_VFOV_2 = TAN_HFOV_2 * SCREEN_HEIGHT / SCREEN_WIDTH;
+
+cdb Properties {
+    int x;
+    int y;
+    int z;
+    int pitch;
+    int yaw;
+    int roll;
+    int indexbuf_len;
+}
+
+cdb VertexBuffer {
+    int x;
+    int y;
+    int z;
+}
+
+cdb IndexBuffer {
+    int ul;
+    int ur;
+    int dl;
+    int dr;
+}
+
+cdb Cubes {
+    int[3] v0;
+    int[3] v1;
+    int[3] v2;
+    int[3] v3;
+    int[3] v4;
+    int[3] v5;
+    int[3] v6;
+    int[3] v7;
+    int[3] v8;
+}
+
+inline int key(int k) {
+    int out;
+    cmd [123](out,4352,k)();
+    return out;
+}
+
+inline void print(str s) {
+    cmd [106]()(s);
+}
+
+inline void wait(int x) {
+    cmd [180](x)();
+}
+
+inline void vert(int i, int x, int y, int z) {
+    int sin_pitch = sin(0 - Properties[0].pitch);
+    int cos_pitch = cos(0 - Properties[0].pitch);
+    int sin_yaw = sin(0 - Properties[0].yaw);
+    int cos_yaw = cos(0 - Properties[0].yaw);
+
+    int x_trans = x - Properties[0].x;
+    int y_trans = y - Properties[0].y;
+    int z_trans = z - Properties[0].z;
+
+    int x_rot = x_trans * cos_yaw - z_trans * sin_yaw;
+    int z_rot = (x_trans * sin_yaw + z_trans * cos_yaw) / 1000;
+    int y_rot = z_rot * sin_pitch + y_trans * cos_pitch;
+    z_rot = (z_rot * cos_pitch - y_trans * sin_pitch) / 1000;
+
+    if (z_rot <= 0) {
+        VertexBuffer[i].z = 0;
+        return;
+    }
+
+    int screen_x = x_rot * SCREEN_CENTER_X / (z_rot * TAN_HFOV_2) + SCREEN_CENTER_X;
+    int screen_y = -(y_rot * SCREEN_CENTER_Y / (z_rot * TAN_VFOV_2)) + SCREEN_CENTER_Y;
+
+    VertexBuffer[i].x = screen_x;
+    VertexBuffer[i].y = screen_y;
+    VertexBuffer[i].z = z_rot;
+}
+
+inline void draw() {
+    int i = 0;
+    loop (Properties[0].indexbuf_len) {
+        int v = IndexBuffer[i].ul;
+        int ul_x = VertexBuffer[v].x;
+        int ul_y = VertexBuffer[v].y;
+        int do_draw = VertexBuffer[v].z;
+
+        v = IndexBuffer[i].ur;
+        int ur_x = VertexBuffer[v].x;
+        int ur_y = VertexBuffer[v].y;
+        do_draw *= VertexBuffer[v].z;
+        
+        v = IndexBuffer[i].dl;
+        int dl_x = VertexBuffer[v].x;
+        int dl_y = VertexBuffer[v].y;
+        do_draw *= VertexBuffer[v].z;
+
+        v = IndexBuffer[i].dr;
+        int dr_x = VertexBuffer[v].x;
+        int dr_y = VertexBuffer[v].y;
+        do_draw *= VertexBuffer[v].z;
+
+        if (!do_draw) continue;
+
+        cmd [150]
+            (67112960,
+            i,0,1,2,1,255,
+            ul_x,ul_y,
+            100,0,0,33554432,0,0,100,100,100,0,
+            ur_x,ur_y,dl_x,dl_y,dr_x,dr_y)
+            ("thing.png");
+
+        i += 1;
+    }
+}
+
+inline void cube(int[3] origin) {
+    // top:
+    // 0 1
+    // 2 3
+    // bottom:
+    // 4 5
+    // 6 7
+    Cubes[0].v0[0] = origin[0] - 50;
+    Cubes[0].v0[1] = origin[1] + 50;
+    Cubes[0].v0[2] = origin[2] + 50;
+
+    Cubes[0].v1[0] = origin[0] + 50;
+    Cubes[0].v1[1] = origin[1] + 50;
+    Cubes[0].v1[2] = origin[2] + 50;
+    
+    Cubes[0].v2[0] = origin[0] - 50;
+    Cubes[0].v2[1] = origin[1] + 50;
+    Cubes[0].v2[2] = origin[2] - 50;
+    
+    Cubes[0].v3[0] = origin[0] + 50;
+    Cubes[0].v3[1] = origin[1] + 50;
+    Cubes[0].v3[2] = origin[2] - 50;
+    
+    Cubes[0].v4[0] = origin[0] - 50;
+    Cubes[0].v4[1] = origin[1] - 50;
+    Cubes[0].v4[2] = origin[2] + 50;
+    
+    Cubes[0].v5[0] = origin[0] + 50;
+    Cubes[0].v5[1] = origin[1] - 50;
+    Cubes[0].v5[2] = origin[2] + 50;
+    
+    Cubes[0].v6[0] = origin[0] - 50;
+    Cubes[0].v6[1] = origin[1] - 50;
+    Cubes[0].v6[2] = origin[2] - 50;
+    
+    Cubes[0].v7[0] = origin[0] + 50;
+    Cubes[0].v7[1] = origin[1] - 50;
+    Cubes[0].v7[2] = origin[2] - 50;
+}
+
+inline void draw_cube() {
+    Properties[0].indexbuf_len = 6;
+    vert(0, Cubes[0].v0[0], Cubes[0].v0[1], Cubes[0].v0[2]);
+    vert(1, Cubes[0].v1[0], Cubes[0].v1[1], Cubes[0].v1[2]);
+    vert(2, Cubes[0].v2[0], Cubes[0].v2[1], Cubes[0].v2[2]);
+    vert(3, Cubes[0].v3[0], Cubes[0].v3[1], Cubes[0].v3[2]);
+    vert(4, Cubes[0].v4[0], Cubes[0].v4[1], Cubes[0].v4[2]);
+    vert(5, Cubes[0].v5[0], Cubes[0].v5[1], Cubes[0].v5[2]);
+    vert(6, Cubes[0].v6[0], Cubes[0].v6[1], Cubes[0].v6[2]);
+    vert(7, Cubes[0].v7[0], Cubes[0].v7[1], Cubes[0].v7[2]);
+
+    IndexBuffer[0].ul = 0;
+    IndexBuffer[0].ur = 1;
+    IndexBuffer[0].dl = 2;
+    IndexBuffer[0].dr = 3;
+    
+    IndexBuffer[1].ul = 4;
+    IndexBuffer[1].ur = 5;
+    IndexBuffer[1].dl = 6;
+    IndexBuffer[1].dr = 7;
+    
+    IndexBuffer[2].ul = 1;
+    IndexBuffer[2].ur = 0;
+    IndexBuffer[2].dl = 5;
+    IndexBuffer[2].dr = 4;
+    
+    IndexBuffer[3].ul = 2;
+    IndexBuffer[3].ur = 3;
+    IndexBuffer[3].dl = 6;
+    IndexBuffer[3].dr = 7;
+    
+    IndexBuffer[4].ul = 0;
+    IndexBuffer[4].ur = 2;
+    IndexBuffer[4].dl = 4;
+    IndexBuffer[4].dr = 6;
+    
+    IndexBuffer[5].ul = 3;
+    IndexBuffer[5].ur = 1;
+    IndexBuffer[5].dl = 7;
+    IndexBuffer[5].dr = 5;
+
+    draw();
+}

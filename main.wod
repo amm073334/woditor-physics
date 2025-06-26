@@ -1,0 +1,52 @@
+import "renderer";
+
+void main() {
+    // IndexBuffer[0].ul = 0;
+    // IndexBuffer[0].ur = 1;
+    // IndexBuffer[0].dl = 2;
+    // IndexBuffer[0].dr = 3;
+    // Properties[0].indexbuf_len = 1;
+
+    // vert(0, -200, 50, 500);
+    // vert(1, -100, 50, 500);
+    // vert(2, -200, -50, 500);
+    // vert(3, -100, -50, 500);
+
+
+    const int MOVE_SPEED = 30;
+
+    int[3] pos;
+    int count = 0;
+    loop {
+        pos[0] = cos(count * 10) / 5;
+        pos[1] = sin(count * 10) / 5;
+        pos[2] = 200;
+        cube(pos);
+
+        int mov_x = cos(Properties[0].yaw) * MOVE_SPEED / 1000;
+        int mov_z = sin(Properties[0].yaw) * MOVE_SPEED / 1000;
+        if (key(132)) {
+            Properties[0].x += mov_x;
+            Properties[0].z += mov_z;
+        }
+        if (key(130)) {
+            Properties[0].x -= mov_x;
+            Properties[0].z -= mov_z;
+        }
+        mov_x = cos(Properties[0].yaw + 900) * MOVE_SPEED / 1000;
+        mov_z = sin(Properties[0].yaw + 900) * MOVE_SPEED / 1000;
+        if (key(117)) {
+            Properties[0].x += mov_x;
+            Properties[0].z += mov_z;
+        }
+        if (key(131)){
+            Properties[0].x -= mov_x;
+            Properties[0].z -= mov_z;
+        }
+        if (key(136)) Properties[0].yaw += MOVE_SPEED;
+        if (key(138)) Properties[0].yaw -= MOVE_SPEED;
+        draw_cube();
+        wait(1);
+        count += 1;
+    }
+}

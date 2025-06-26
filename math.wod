@@ -1,0 +1,18 @@
+inline int sin(int x) {
+    int out;
+    cmd [121](out, x, 0, 0xA00)();
+    return out;
+}
+
+inline int cos(int x) {
+    int out;
+    cmd [121](out, x, 0, 0xB00)();
+    return out;
+}
+
+inline int vec3_dot(int[3] a, int[3] b) {
+    return
+        a[0] * b[0] +
+        a[1] * b[1] +
+        a[2] * b[2];
+}
