@@ -1,0 +1,191 @@
+cdb RigidBodies {
+    int inv_mass;
+    int[3] position;
+    int[4] orientation;
+    int[3] velocity;
+    int[3] rotation;
+    int[9] inv_inertia_tensor;
+
+    int[3] force_accum;
+    int[3] torque_accum;
+
+    // TODO: can this be removed if everything is ints anyway?
+    int linear_damping;
+    int angular_damping;
+
+    int[3] acceleration;
+    int[3] last_frame_acceleration;
+
+    // derived quantities
+    int[12] transform;
+    int[9] inv_inertia_tensor_world;
+}
+
+inline void rb_set_inertia_tensor(int rb, int[9] inertia_tensor) {
+    mat3x3_invert(RigidBodies[rb].inv_inertia_tensor, inertia_tensor);
+}
+
+inline void rb_add_force(int rb, int[3] force) {
+    RigidBodies[rb].force_accum[0] += force[0];
+    RigidBodies[rb].force_accum[1] += force[1];
+    RigidBodies[rb].force_accum[2] += force[2];
+}
+
+inline void rb_add_torque(int rb, int[3] torque) {
+    RigidBodies[rb].torque_accum[0] += torque[0];
+    RigidBodies[rb].torque_accum[1] += torque[1];
+    RigidBodies[rb].torque_accum[2] += torque[2];
+}
+
+inline void rb_add_force_at_body_pt(int rb, int[3] force, int[3] point) {
+    int[3] pt;
+    mat3x4_transform(pt, RigidBodies[rb].transform, point);
+    rb_add_force_at_pt(force, pt);
+}
+
+inline void rb_add_force_at_pt(int rb, int[3] force, int[3] point) {
+    int[3] pt;
+    pt[0] = point[0] - RigidBodies[rb].position[0];
+    pt[1] = point[1] - RigidBodies[rb].position[1];
+    pt[2] = point[2] - RigidBodies[rb].position[2];
+
+    rb_add_force(rb, force);
+
+    int[3] torque;
+    vec3_cross(torque, pt, force);
+    rb_add_torque(rb, torque);
+}
+
+inline void rb_integrate(int rb, int duration) {
+    RigidBodies[rb].last_frame_acceleration[0] = RigidBodies[rb].acceleration[0];
+    RigidBodies[rb].last_frame_acceleration[1] = RigidBodies[rb].acceleration[1];
+    RigidBodies[rb].last_frame_acceleration[2] = RigidBodies[rb].acceleration[2];
+    vec3_add_scaled(
+        RigidBodies[rb].last_frame_acceleration,
+        RigidBodies[rb].force_accum,
+        RigidBodies[rb].inv_mass
+    );
+
+    int[3] angular_acceleration;
+    mat3x3_transform(
+        angular_acceleration,
+        RigidBodies[rb].inv_inertia_tensor_world,
+        RigidBodies[rb].torque_accum
+    );
+
+    // deviate from cyclone here and assume duration is always 1 for now
+    vec3_add(RigidBodies[rb].velocity, RigidBodies[rb].last_frame_acceleration);
+    vec3_add(RigidBodies[rb].rotation, RigidBodies[rb].angular_acceleration);
+    
+    // also, assume damping == 1 for now and skip this part
+    // velocity *= real_pow(linearDamping, duration);
+    // rotation *= real_pow(angularDamping, duration);
+
+    vec3_add(RigidBodies[rb].position, RigidBodies[rb].velocity);
+    quat_add_scaled(RigidBodies[rb].orientation, RigidBodies[rb].rotation, 1000);
+    
+    rb_calculated_derived(rb);
+    rb_clear_accum(rb);
+}
+
+inline void rb_clear_accum(int rb) {
+    RigidBodies[rb].force_accum[0] = 0;
+    RigidBodies[rb].force_accum[1] = 0;
+    RigidBodies[rb].force_accum[2] = 0;
+
+    RigidBodies[rb].torque_accum[0] = 0;
+    RigidBodies[rb].torque_accum[1] = 0;
+    RigidBodies[rb].torque_accum[2] = 0;
+}
+
+inline void rb_calculated_derived(int rb) {
+    quat_normalize(RigidBodies[rb].orientation);
+
+    _calculate_transform(
+        RigidBodies[rb].transform, 
+        RigidBodies[rb].position, 
+        RigidBodies[rb].orientation
+    );
+    _transform_inertia_tensor(
+        RigidBodies[rb].inv_inertia_tensor_world, 
+        RigidBodies[rb].orientation,
+        RigidBodies[rb].inv_inertia_tensor,
+        RigidBodies[rb].transform,
+    );
+}
+
+// internal functions
+inline void _calculate_transform(int[12] transform, int[3] pos, int[4] orientation) {
+    transform[0]  = 1000 - 2*orientation[2]*orientation[2] - 2*orientation[3]*orientation[3];
+    transform[1]  =        2*orientation[1]*orientation[2] - 2*orientation[0]*orientation[3];
+    transform[2]  =        2*orientation[1]*orientation[3] + 2*orientation[0]*orientation[2];
+    transform[3]  = pos[0];
+
+    transform[4]  =        2*orientation[1]*orientation[2] + 2*orientation[0]*orientation[3];
+    transform[5]  = 1000 - 2*orientation[1]*orientation[1] - 2*orientation[3]*orientation[3];
+    transform[6]  =        2*orientation[2]*orientation[3] - 2*orientation[0]*orientation[1];
+    transform[7]  = pos[1];
+
+    transform[8]           2*orientation[1]*orientation[3] - 2*orientation[0]*orientation[2];
+    transform[9]           2*orientation[2]*orientation[3] + 2*orientation[0]*orientation[1];
+    transform[10] = 1000 - 2*orientation[1]*orientation[1] - 2*orientation[2]*orientation[2];
+    transform[11] = pos[2];
+}
+
+inline void _transform_inertia_tensor(int[9] iit_world, int[4] q, int[9] iit_body, int[12] rotmat) {
+    int t4  = (rotmat[0]  * iit_body[0] +
+               rotmat[1]  * iit_body[3] +
+               rotmat[2]  * iit_body[6]) / 1000;
+    int t9  = (rotmat[0]  * iit_body[1] +
+               rotmat[1]  * iit_body[4] +
+               rotmat[2]  * iit_body[7]) / 1000;
+    int t14 = (rotmat[0]  * iit_body[2] +
+               rotmat[1]  * iit_body[5] +
+               rotmat[2]  * iit_body[8]) / 1000;
+    int t28 = (rotmat[4]  * iit_body[0] +
+               rotmat[5]  * iit_body[3] +
+               rotmat[6]  * iit_body[6]) / 1000;
+    int t33 = (rotmat[4]  * iit_body[1] +
+               rotmat[5]  * iit_body[4] +
+               rotmat[6]  * iit_body[7]) / 1000;
+    int t38 = (rotmat[4]  * iit_body[2] +
+               rotmat[5]  * iit_body[5] +
+               rotmat[6]  * iit_body[8]) / 1000;
+    int t52 = (rotmat[8]  * iit_body[0] +
+               rotmat[9]  * iit_body[3] +
+               rotmat[10] * iit_body[6]) / 1000;
+    int t57 = (rotmat[8]  * iit_body[1] +
+               rotmat[9]  * iit_body[4] +
+               rotmat[10] * iit_body[7]) / 1000;
+    int t62 = (rotmat[8]  * iit_body[2] +
+               rotmat[9]  * iit_body[5] +
+               rotmat[10] * iit_body[8]) / 1000;
+
+    iit_world[0] = (t4  * rotmat[0] +
+                    t9  * rotmat[1] +
+                    t14 * rotmat[2])  / 1000;
+    iit_world[1] = (t4  * rotmat[4] +
+                    t9  * rotmat[5] +
+                    t14 * rotmat[6])  / 1000;
+    iit_world[2] = (t4  * rotmat[8] +
+                    t9  * rotmat[9] +
+                    t14 * rotmat[10]) / 1000;
+    iit_world[3] = (t28 * rotmat[0] +
+                    t33 * rotmat[1] +
+                    t38 * rotmat[2])  / 1000;
+    iit_world[4] = (t28 * rotmat[4] +
+                    t33 * rotmat[5] +
+                    t38 * rotmat[6])  / 1000;
+    iit_world[5] = (t28 * rotmat[8] +
+                    t33 * rotmat[9] +
+                    t38 * rotmat[10]) / 1000;
+    iit_world[6] = (t52 * rotmat[0] +
+                    t57 * rotmat[1] +
+                    t62 * rotmat[2])  / 1000;
+    iit_world[7] = (t52 * rotmat[4] +
+                    t57 * rotmat[5] +
+                    t62 * rotmat[6])  / 1000;
+    iit_world[8] = (t52 * rotmat[8] +
+                    t57 * rotmat[9] +
+                    t62 * rotmat[10]) / 1000;
+}

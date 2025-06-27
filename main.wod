@@ -1,4 +1,6 @@
+import "math";
 import "renderer";
+import "rb";
 
 void main() {
     const int MOVE_SPEED = 30;

@@ -17,10 +17,13 @@ inline int sqrt(int x) {
 }
 
 inline int vec3_dot(int[3] a, int[3] b) {
-    return
-        a[0] * b[0] +
-        a[1] * b[1] +
-        a[2] * b[2];
+    return (a[0] * b[0] + a[1] * b[1] + a[2] * b[2]) / 1000;
+}
+
+inline void vec3_add_scaled(int[3] a, int[3] b, int scale) {
+    a[0] += b[0] * scale / 1000;
+    a[1] += b[1] * scale / 1000;
+    a[2] += b[2] * scale / 1000;
 }
 
 inline void vec3_add(int[3] r, int[3] a, int[3] b) {
@@ -36,9 +39,9 @@ inline void vec3_sub(int[3] r, int[3] a, int[3] b) {
 }
 
 inline void vec3_scale(int[3] r, int[3] a, int b) {
-    r[0] = a[0] * b;
-    r[1] = a[1] * b;
-    r[2] = a[2] * b;
+    r[0] = a[0] * b / 1000;
+    r[1] = a[1] * b / 1000;
+    r[2] = a[2] * b / 1000;
 }
 
 inline void vec3_mul(int[3] r, int[3] a, int[3] b) {
@@ -47,6 +50,7 @@ inline void vec3_mul(int[3] r, int[3] a, int[3] b) {
     r[2] = (a[2] * b[2]) / 1000;
 }
 
+// TODO: change to left-handed?
 inline void vec3_cross(int[3] r, int[3] a, int[3] b) {
     r[0] = (a[1]*b[2] - a[2]*b[1]) / 1000;
     r[1] = (a[2]*b[0] - a[0]*b[2]) / 1000;
@@ -78,6 +82,7 @@ inline void quat_normalize(int[4] q) {
     q[0] = q[0] * 1000 / d;
     q[1] = q[1] * 1000 / d;
     q[2] = q[2] * 1000 / d;
+    q[3] = q[3] * 1000 / d;
 }
 
 inline void quat_mul(int[4] a, int[4] b) {
@@ -101,17 +106,23 @@ inline void quat_rot(int[4] a, int[3] b) {
     quat_mul(a, q);
 }
 
-inline void quat_addscaled(int[4] q, int[3] v, int scale) {
+inline void quat_add_scaled(int[4] q, int[3] v, int scale) {
     int[4] q2;
     q2[0] = 0;
-    q2[1] = v[0] * scale;
-    q2[2] = v[1] * scale;
-    q2[3] = v[2] * scale;
+    q2[1] = v[0] * scale / 1000;
+    q2[2] = v[1] * scale / 1000;
+    q2[3] = v[2] * scale / 1000;
     quat_mul(q2, q);
     q[0] += q2[0] / 2;
     q[1] += q2[1] / 2;
     q[2] += q2[2] / 2;
     q[3] += q2[3] / 2;
+}
+
+inline void mat3x3_transform(int[3] r, int[9] m, int[3] v) {
+    r[0] = (v[0]*m[0] + v[1]*m[1] + v[2]*m[2]) / 1000;
+    r[1] = (v[0]*m[3] + v[1]*m[4] + v[2]*m[5]) / 1000;
+    r[2] = (v[0]*m[6] + v[1]*m[7] + v[2]*m[8]) / 1000;
 }
 
 inline void mat3x3_mul_mat3x3(int[9] r, int[9] a, int[9] b) {
