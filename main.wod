@@ -1,18 +1,6 @@
 import "renderer";
 
 void main() {
-    // IndexBuffer[0].ul = 0;
-    // IndexBuffer[0].ur = 1;
-    // IndexBuffer[0].dl = 2;
-    // IndexBuffer[0].dr = 3;
-    // Properties[0].indexbuf_len = 1;
-
-    // vert(0, -200, 50, 500);
-    // vert(1, -100, 50, 500);
-    // vert(2, -200, -50, 500);
-    // vert(3, -100, -50, 500);
-
-
     const int MOVE_SPEED = 30;
 
     int[3] pos;
