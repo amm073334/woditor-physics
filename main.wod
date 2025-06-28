@@ -5,13 +5,32 @@ import "rb";
 void main() {
     const int MOVE_SPEED = 30;
 
-    int[3] pos;
-    int count = 0;
+    rb_init_cube(0, 1000, 1000);
+    rb_calculate_derived(0);
+    // RigidBodies[0].position[1] = 2000;
+    RigidBodies[0].acceleration[1] = -500;
+
+    // int[3] pos;
+    // int count = 0;
     loop {
-        pos[0] = cos(count * 10) / 5;
-        pos[1] = sin(count * 10) / 5;
-        pos[2] = 200;
-        cube(pos);
+        rb_clear_accum(0);
+        if (key(125)) {
+            int[3] force;
+            force[0] = 0;
+            force[1] = 1000;
+            force[2] = 0;
+            rb_add_force(0, force);
+        }
+
+        rb_integrate(0, 16);
+        // pos[0] = cos(count * 10) / 5;
+        // pos[1] = sin(count * 10) / 5;
+        // pos[2] = 200;
+        cube(RigidBodies[0].position);
+        print(f"{RigidBodies[0].position[0]} {RigidBodies[0].position[1]} {RigidBodies[0].position[2]}");
+        // print(f"{RigidBodies[0].velocity[0]} {RigidBodies[0].velocity[1]} {RigidBodies[0].velocity[2]}");
+        // print(f"{RigidBodies[0].acceleration[0]} {RigidBodies[0].acceleration[1]} {RigidBodies[0].acceleration[2]}");
+        draw_cube();
 
         int mov_x = cos(Properties[0].yaw) * MOVE_SPEED / 1000;
         int mov_z = sin(Properties[0].yaw) * MOVE_SPEED / 1000;
@@ -35,8 +54,20 @@ void main() {
         }
         if (key(136)) Properties[0].yaw += MOVE_SPEED;
         if (key(138)) Properties[0].yaw -= MOVE_SPEED;
-        draw_cube();
         wait(1);
-        count += 1;
+        // count += 1;
+    }
+}
+
+inline void start_frame(int n_rb) {
+    for (int i = 0; i < n_rb; i += 1) {
+        rb_clear_accum(i);
+        rb_calculate_derived(i);
+    }
+}
+
+inline void run_physics(int n_rb) {
+    for (int i = 0; i < n_rb; i += 1) {
+        rb_integrate(i, 1000);
     }
 }

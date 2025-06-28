@@ -21,6 +21,23 @@ cdb RigidBodies {
     int[9] inv_inertia_tensor_world;
 }
 
+inline void rb_init_cube(int rb, int mass, int side_len) {
+    RigidBodies[rb].inv_mass = 1000000 / mass;
+    RigidBodies[rb].acceleration[1] = -9810;
+    int moment = (side_len * side_len) / 1000 * mass / 6000;
+    int[9] it;
+    it[0] = moment;
+    it[1] = 0;
+    it[2] = 0;
+    it[3] = 0;
+    it[4] = moment;
+    it[5] = 0;
+    it[6] = 0;
+    it[7] = 0;
+    it[8] = moment;
+    rb_set_inertia_tensor(rb, it);
+}
+
 inline void rb_set_inertia_tensor(int rb, int[9] inertia_tensor) {
     mat3x3_invert(RigidBodies[rb].inv_inertia_tensor, inertia_tensor);
 }
@@ -40,7 +57,7 @@ inline void rb_add_torque(int rb, int[3] torque) {
 inline void rb_add_force_at_body_pt(int rb, int[3] force, int[3] point) {
     int[3] pt;
     mat3x4_transform(pt, RigidBodies[rb].transform, point);
-    rb_add_force_at_pt(force, pt);
+    rb_add_force_at_pt(rb, force, pt);
 }
 
 inline void rb_add_force_at_pt(int rb, int[3] force, int[3] point) {
@@ -73,18 +90,17 @@ inline void rb_integrate(int rb, int duration) {
         RigidBodies[rb].torque_accum
     );
 
-    // deviate from cyclone here and assume duration is always 1 for now
-    vec3_add(RigidBodies[rb].velocity, RigidBodies[rb].last_frame_acceleration);
-    vec3_add(RigidBodies[rb].rotation, RigidBodies[rb].angular_acceleration);
+    vec3_add_scaled(RigidBodies[rb].velocity, RigidBodies[rb].last_frame_acceleration, duration);
+    vec3_add_scaled(RigidBodies[rb].rotation, angular_acceleration, duration);
     
-    // also, assume damping == 1 for now and skip this part
-    // velocity *= real_pow(linearDamping, duration);
-    // rotation *= real_pow(angularDamping, duration);
+    // NOTE: currently using constant damping
+    vec3_scale(RigidBodies[rb].velocity, RigidBodies[rb].velocity, 995);
+    vec3_scale(RigidBodies[rb].rotation, RigidBodies[rb].rotation, 995);
 
-    vec3_add(RigidBodies[rb].position, RigidBodies[rb].velocity);
-    quat_add_scaled(RigidBodies[rb].orientation, RigidBodies[rb].rotation, 1000);
+    vec3_add_scaled(RigidBodies[rb].position, RigidBodies[rb].velocity, duration);
+    quat_add_scaled(RigidBodies[rb].orientation, RigidBodies[rb].rotation, duration);
     
-    rb_calculated_derived(rb);
+    rb_calculate_derived(rb);
     rb_clear_accum(rb);
 }
 
@@ -98,7 +114,7 @@ inline void rb_clear_accum(int rb) {
     RigidBodies[rb].torque_accum[2] = 0;
 }
 
-inline void rb_calculated_derived(int rb) {
+inline void rb_calculate_derived(int rb) {
     quat_normalize(RigidBodies[rb].orientation);
 
     _calculate_transform(
@@ -110,7 +126,7 @@ inline void rb_calculated_derived(int rb) {
         RigidBodies[rb].inv_inertia_tensor_world, 
         RigidBodies[rb].orientation,
         RigidBodies[rb].inv_inertia_tensor,
-        RigidBodies[rb].transform,
+        RigidBodies[rb].transform
     );
 }
 
@@ -126,8 +142,8 @@ inline void _calculate_transform(int[12] transform, int[3] pos, int[4] orientati
     transform[6]  =        2*orientation[2]*orientation[3] - 2*orientation[0]*orientation[1];
     transform[7]  = pos[1];
 
-    transform[8]           2*orientation[1]*orientation[3] - 2*orientation[0]*orientation[2];
-    transform[9]           2*orientation[2]*orientation[3] + 2*orientation[0]*orientation[1];
+    transform[8]  =        2*orientation[1]*orientation[3] - 2*orientation[0]*orientation[2];
+    transform[9]  =        2*orientation[2]*orientation[3] + 2*orientation[0]*orientation[1];
     transform[10] = 1000 - 2*orientation[1]*orientation[1] - 2*orientation[2]*orientation[2];
     transform[11] = pos[2];
 }

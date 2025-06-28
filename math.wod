@@ -51,7 +51,7 @@ inline void vec3_mul(int[3] r, int[3] a, int[3] b) {
 }
 
 // TODO: change to left-handed?
-inline void vec3_cross(int[3] r, int[3] a, int[3] b) {
+inline void vec3_cross(int[3] r, int[3] b, int[3] a) {
     r[0] = (a[1]*b[2] - a[2]*b[1]) / 1000;
     r[1] = (a[2]*b[0] - a[0]*b[2]) / 1000;
     r[2] = (a[0]*b[1] - a[1]*b[0]) / 1000;
