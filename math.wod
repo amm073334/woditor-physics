@@ -16,6 +16,12 @@ inline int sqrt(int x) {
     return out;
 }
 
+inline int muldiv(int n, int a, int b) {
+    int out = n;
+    cmd [121](out, a, b, 0x3302)();
+    return out;
+}
+
 inline int vec3_dot(int[3] a, int[3] b) {
     return (a[0] * b[0] + a[1] * b[1] + a[2] * b[2]) / 1000;
 }
@@ -58,7 +64,7 @@ inline void vec3_cross(int[3] r, int[3] b, int[3] a) {
 }
 
 inline int vec3_mag(int[3] v) {
-    return sqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2]);
+    return sqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2]) / 1000;
 }
 
 inline int vec3_sqmag(int[3] v) {
@@ -75,10 +81,10 @@ inline void vec3_normalize(int[3] v) {
 inline void quat_normalize(int[4] q) {
     int d = q[0]*q[0] + q[1]*q[1] + q[2]*q[2] + q[3]*q[3];
     if (d == 0) {
-        q[0] = 1;
+        q[0] = 1000;
         return;
     }
-    d = sqrt(d);
+    d = sqrt(d) / 1000;
     q[0] = q[0] * 1000 / d;
     q[1] = q[1] * 1000 / d;
     q[2] = q[2] * 1000 / d;
@@ -140,6 +146,34 @@ inline void mat3x3_mul_mat3x3(int[9] r, int[9] a, int[9] b) {
 }
 
 inline void mat3x3_invert(int[9] r, int[9] m) {
+    int t4  = m[0]*m[4];
+    int t6  = m[0]*m[5];
+    int t8  = m[1]*m[3];
+    int t10 = m[2]*m[3];
+    int t12 = m[1]*m[6];
+    int t14 = m[2]*m[6];
+
+    int det = muldiv(t4, m[8], 1000) - muldiv(t6, m[7], 1000) - muldiv(t8, m[8], 1000) +
+              muldiv(t10, m[7], 1000) + muldiv(t12, m[5], 1000) - muldiv(t14, m[4], 1000);
+
+    if (det == 0) {
+        print("3x3 uninvertible");
+        return;
+    }
+
+    r[0] = muldiv( (m[4]*m[8]        - m[5]*m[7]), 1000, det);
+    r[1] = muldiv(-(m[1]*m[8]        - m[2]*m[7]), 1000, det);
+    r[2] = muldiv( (m[1]*m[5]        - m[2]*m[4]), 1000, det);
+    r[3] = muldiv(-(m[3]*m[8]        - m[5]*m[6]), 1000, det);
+    r[4] = muldiv( (m[0]*m[8]        - t14      ), 1000, det);
+    r[5] = muldiv(-(t6               - t10      ), 1000, det);
+    r[6] = muldiv( (m[3]*m[7]        - m[4]*m[6]), 1000, det);
+    r[7] = muldiv(-(m[0]*m[7]        - t12      ), 1000, det);
+    r[8] = muldiv( (t4               - t8       ), 1000, det);
+}
+
+// faster version with more inaccuracy
+inline void mat3x3_invert_fast(int[9] r, int[9] m) {
     int t4  = m[0]*m[4] / 1000;
     int t6  = m[0]*m[5] / 1000;
     int t8  = m[1]*m[3] / 1000;
@@ -150,7 +184,10 @@ inline void mat3x3_invert(int[9] r, int[9] m) {
     int det = t4*m[8] - t6*m[7] - t8*m[8] +
               t10*m[7] + t12*m[5] - t14*m[4];
 
-    if (det <= 0) return;
+    if (det == 0) {
+        print("3x3 uninvertible");
+        return;
+    }
     det /= 1000;
     int idet = 1000000 / det;
 
@@ -221,7 +258,10 @@ inline void mat3x4_invert(int[12] r, int[12] m) {
                m[0]*m[9] / 1000 * m[6] -
                m[4]*m[1] / 1000 * m[10]+
                m[0]*m[5] / 1000 * m[10];
-    if (det <= 0) return;
+    if (det == 0) {
+        print("3x4 uninvertible");
+        return;
+    }
     det /= 1000;
     int idet = 1000000 / det;
 

@@ -1,18 +1,93 @@
+import "util";
 import "math";
 import "renderer";
 import "rb";
 
+inline void print_3x4(int[12] m) {
+    print(f"{m[0]} {m[1]} {m[2]} {m[3]}");
+    print(f"{m[4]} {m[5]} {m[6]} {m[7]}");
+    print(f"{m[8]} {m[9]} {m[10]} {m[11]}");
+}
+
 void main() {
+    
+    // int[3] test_v;
+    // test_v[0] = 1000;
+    // test_v[1] = 2000;
+    // test_v[2] = 4000;
+    
+    // int[4] test_q;
+    // test_q[0] = 0;
+    // test_q[1] = 4000;
+    // test_q[2] = 4000;
+    // test_q[3] = 3000;
+
+    // int[12] test_m;
+
+    // _calculate_transform(test_m, test_v, test_q);
+    // print_3x4(test_m);
+    // return;
+
+    // int[9] test_mat;
+    // test_mat[0] = 1000;
+    // test_mat[1] = -4000;
+    // test_mat[2] = 2000;
+    // test_mat[3] = -2000;
+    // test_mat[4] = 1000;
+    // test_mat[5] = 3000;
+    // test_mat[6] = 2000;
+    // test_mat[7] = 6000;
+    // test_mat[8] = 8000;
+
+    // int[9] test_out;
+    // mat3x3_invert(test_out, test_mat);
+    // print(f"{test_out[0]} {test_out[1]} {test_out[2]}");
+    // print(f"{test_out[3]} {test_out[4]} {test_out[5]}");
+    // print(f"{test_out[6]} {test_out[7]} {test_out[8]}");
+
+    // return;
+
     const int MOVE_SPEED = 30;
 
+    render_init_cube(64);
     rb_init_cube(0, 1000, 1000);
     rb_calculate_derived(0);
-    // RigidBodies[0].position[1] = 2000;
-    RigidBodies[0].acceleration[1] = -500;
+    RigidBodies[0].position[2] = 500;
+    RigidBodies[0].acceleration[1] = 0;
 
-    // int[3] pos;
-    // int count = 0;
+    // int[12] test_transform;
+    // test_transform[0] = 1000;
+    // test_transform[1] = 0;
+    // test_transform[2] = 0;
+    // test_transform[3] = 0;
+    // test_transform[4] = 0;
+    // test_transform[5] = 1000;
+    // test_transform[6] = 0;
+    // test_transform[7] = 0;
+    // test_transform[8] = 0;
+    // test_transform[9] = 0;
+    // test_transform[10] = 1000;
+    // test_transform[11] = 0;
+
+    // int theta = 0;
     loop {
+        // X
+        // test_transform[5] = cos(theta);
+        // test_transform[6] = sin(theta);
+        // test_transform[9] = -sin(theta);
+        // test_transform[10] = cos(theta);
+        
+        // Y
+        // test_transform[0] = cos(theta);
+        // test_transform[2] = -sin(theta);
+        // test_transform[8] = sin(theta);
+        // test_transform[10] = cos(theta);
+
+        // Z
+        // test_transform[0] = cos(theta);
+        // test_transform[1] = -sin(theta);
+        // test_transform[4] = sin(theta);
+        // test_transform[5] = cos(theta);
         rb_clear_accum(0);
         if (key(125)) {
             int[3] force;
@@ -21,16 +96,37 @@ void main() {
             force[2] = 0;
             rb_add_force(0, force);
         }
+        if (key(124)) {
+            int[3] torque;
+            torque[0] = 1000;
+            torque[1] = 1500;
+            torque[2] = 2000;
+            rb_add_torque(0, torque);
+        } else {
+            // theta += 2000;
+        }
+        if (key(123)) {
+            int[3] force;
+            force[0] = 1000;
+            force[1] = 2000;
+            force[2] = 1234;
+            int[3] point;
+            point[0] = 50;
+            point[1] = 50;
+            point[2] = 0;
+            rb_add_force_at_pt(0, force, point);
+        }
 
         rb_integrate(0, 16);
-        // pos[0] = cos(count * 10) / 5;
-        // pos[1] = sin(count * 10) / 5;
-        // pos[2] = 200;
-        cube(RigidBodies[0].position);
-        print(f"{RigidBodies[0].position[0]} {RigidBodies[0].position[1]} {RigidBodies[0].position[2]}");
-        // print(f"{RigidBodies[0].velocity[0]} {RigidBodies[0].velocity[1]} {RigidBodies[0].velocity[2]}");
-        // print(f"{RigidBodies[0].acceleration[0]} {RigidBodies[0].acceleration[1]} {RigidBodies[0].acceleration[2]}");
-        draw_cube();
+
+        print("");
+        print(f"{RigidBodies[0].transform[0]} {RigidBodies[0].transform[1]} {RigidBodies[0].transform[2]} {RigidBodies[0].transform[3]}");        
+        print(f"{RigidBodies[0].transform[4]} {RigidBodies[0].transform[5]} {RigidBodies[0].transform[6]} {RigidBodies[0].transform[7]}");        
+        print(f"{RigidBodies[0].transform[8]} {RigidBodies[0].transform[9]} {RigidBodies[0].transform[10]} {RigidBodies[0].transform[11]}");        
+        print("");
+        render_buffer_cube(RigidBodies[0].transform);
+        // render_buffer_cube(test_transform);
+        render_draw();
 
         int mov_x = cos(Properties[0].yaw) * MOVE_SPEED / 1000;
         int mov_z = sin(Properties[0].yaw) * MOVE_SPEED / 1000;
@@ -55,7 +151,6 @@ void main() {
         if (key(136)) Properties[0].yaw += MOVE_SPEED;
         if (key(138)) Properties[0].yaw -= MOVE_SPEED;
         wait(1);
-        // count += 1;
     }
 }
 

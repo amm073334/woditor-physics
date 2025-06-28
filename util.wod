@@ -1,0 +1,17 @@
+inline int key(int k) {
+    int out;
+    cmd [123](out,4352,k)();
+    return out;
+}
+
+inline void print(str s) {
+    cmd [106]()(s);
+}
+
+inline void wait(int x) {
+    cmd [180](x)();
+}
+
+inline void cdb_sort_desc(int type, int num, int prop) {
+    cmd [252](type,0,prop,1060864,num)("","","","");
+}

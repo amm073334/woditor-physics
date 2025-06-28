@@ -99,6 +99,7 @@ inline void rb_integrate(int rb, int duration) {
 
     vec3_add_scaled(RigidBodies[rb].position, RigidBodies[rb].velocity, duration);
     quat_add_scaled(RigidBodies[rb].orientation, RigidBodies[rb].rotation, duration);
+    // print(f"or {RigidBodies[0].orientation[0]} {RigidBodies[0].orientation[1]} {RigidBodies[0].orientation[2]} {RigidBodies[0].orientation[3]}");
     
     rb_calculate_derived(rb);
     rb_clear_accum(rb);
@@ -124,7 +125,6 @@ inline void rb_calculate_derived(int rb) {
     );
     _transform_inertia_tensor(
         RigidBodies[rb].inv_inertia_tensor_world, 
-        RigidBodies[rb].orientation,
         RigidBodies[rb].inv_inertia_tensor,
         RigidBodies[rb].transform
     );
@@ -132,76 +132,135 @@ inline void rb_calculate_derived(int rb) {
 
 // internal functions
 inline void _calculate_transform(int[12] transform, int[3] pos, int[4] orientation) {
-    transform[0]  = 1000 - 2*orientation[2]*orientation[2] - 2*orientation[3]*orientation[3];
-    transform[1]  =        2*orientation[1]*orientation[2] - 2*orientation[0]*orientation[3];
-    transform[2]  =        2*orientation[1]*orientation[3] + 2*orientation[0]*orientation[2];
+    transform[0]  = (500000 - orientation[2]*orientation[2] - orientation[3]*orientation[3]) / 500;
+    transform[1]  =          (orientation[1]*orientation[2] - orientation[0]*orientation[3]) / 500;
+    transform[2]  =          (orientation[1]*orientation[3] + orientation[0]*orientation[2]) / 500;
     transform[3]  = pos[0];
 
-    transform[4]  =        2*orientation[1]*orientation[2] + 2*orientation[0]*orientation[3];
-    transform[5]  = 1000 - 2*orientation[1]*orientation[1] - 2*orientation[3]*orientation[3];
-    transform[6]  =        2*orientation[2]*orientation[3] - 2*orientation[0]*orientation[1];
+    transform[4]  =          (orientation[1]*orientation[2] + orientation[0]*orientation[3]) / 500;
+    transform[5]  = (500000 - orientation[1]*orientation[1] - orientation[3]*orientation[3]) / 500;
+    transform[6]  =          (orientation[2]*orientation[3] - orientation[0]*orientation[1]) / 500;
     transform[7]  = pos[1];
 
-    transform[8]  =        2*orientation[1]*orientation[3] - 2*orientation[0]*orientation[2];
-    transform[9]  =        2*orientation[2]*orientation[3] + 2*orientation[0]*orientation[1];
-    transform[10] = 1000 - 2*orientation[1]*orientation[1] - 2*orientation[2]*orientation[2];
+    transform[8]  =          (orientation[1]*orientation[3] - orientation[0]*orientation[2]) / 500;
+    transform[9]  =          (orientation[2]*orientation[3] + orientation[0]*orientation[1]) / 500;
+    transform[10] = (500000 - orientation[1]*orientation[1] - orientation[2]*orientation[2]) / 500;
     transform[11] = pos[2];
 }
 
-inline void _transform_inertia_tensor(int[9] iit_world, int[4] q, int[9] iit_body, int[12] rotmat) {
+inline void _transform_inertia_tensor(int[9] iit_world, int[9] iit_body, int[12] rotmat) {
     int t4  = (rotmat[0]  * iit_body[0] +
                rotmat[1]  * iit_body[3] +
-               rotmat[2]  * iit_body[6]) / 1000;
+               rotmat[2]  * iit_body[6]);
     int t9  = (rotmat[0]  * iit_body[1] +
                rotmat[1]  * iit_body[4] +
-               rotmat[2]  * iit_body[7]) / 1000;
+               rotmat[2]  * iit_body[7]);
     int t14 = (rotmat[0]  * iit_body[2] +
                rotmat[1]  * iit_body[5] +
-               rotmat[2]  * iit_body[8]) / 1000;
+               rotmat[2]  * iit_body[8]);
     int t28 = (rotmat[4]  * iit_body[0] +
                rotmat[5]  * iit_body[3] +
-               rotmat[6]  * iit_body[6]) / 1000;
+               rotmat[6]  * iit_body[6]);
     int t33 = (rotmat[4]  * iit_body[1] +
                rotmat[5]  * iit_body[4] +
-               rotmat[6]  * iit_body[7]) / 1000;
+               rotmat[6]  * iit_body[7]);
     int t38 = (rotmat[4]  * iit_body[2] +
                rotmat[5]  * iit_body[5] +
-               rotmat[6]  * iit_body[8]) / 1000;
+               rotmat[6]  * iit_body[8]);
     int t52 = (rotmat[8]  * iit_body[0] +
                rotmat[9]  * iit_body[3] +
-               rotmat[10] * iit_body[6]) / 1000;
+               rotmat[10] * iit_body[6]);
     int t57 = (rotmat[8]  * iit_body[1] +
                rotmat[9]  * iit_body[4] +
-               rotmat[10] * iit_body[7]) / 1000;
+               rotmat[10] * iit_body[7]);
     int t62 = (rotmat[8]  * iit_body[2] +
                rotmat[9]  * iit_body[5] +
-               rotmat[10] * iit_body[8]) / 1000;
+               rotmat[10] * iit_body[8]);
 
-    iit_world[0] = (t4  * rotmat[0] +
-                    t9  * rotmat[1] +
-                    t14 * rotmat[2])  / 1000;
-    iit_world[1] = (t4  * rotmat[4] +
-                    t9  * rotmat[5] +
-                    t14 * rotmat[6])  / 1000;
-    iit_world[2] = (t4  * rotmat[8] +
-                    t9  * rotmat[9] +
-                    t14 * rotmat[10]) / 1000;
-    iit_world[3] = (t28 * rotmat[0] +
-                    t33 * rotmat[1] +
-                    t38 * rotmat[2])  / 1000;
-    iit_world[4] = (t28 * rotmat[4] +
-                    t33 * rotmat[5] +
-                    t38 * rotmat[6])  / 1000;
-    iit_world[5] = (t28 * rotmat[8] +
-                    t33 * rotmat[9] +
-                    t38 * rotmat[10]) / 1000;
-    iit_world[6] = (t52 * rotmat[0] +
-                    t57 * rotmat[1] +
-                    t62 * rotmat[2])  / 1000;
-    iit_world[7] = (t52 * rotmat[4] +
-                    t57 * rotmat[5] +
-                    t62 * rotmat[6])  / 1000;
-    iit_world[8] = (t52 * rotmat[8] +
-                    t57 * rotmat[9] +
-                    t62 * rotmat[10]) / 1000;
+    int tmp = 1000000;
+    iit_world[0] = muldiv(t4, rotmat[0], tmp) +
+                   muldiv(t9,  rotmat[1], tmp) +
+                   muldiv(t14, rotmat[2], tmp);
+    iit_world[1] = (muldiv(t4,  rotmat[4], tmp) +
+                    muldiv(t9,  rotmat[5], tmp) +
+                    muldiv(t14,  rotmat[6], tmp)) ;
+    iit_world[2] = (muldiv(t4,  rotmat[8], tmp) +
+                    muldiv(t9,  rotmat[9], tmp) +
+                    muldiv(t14,  rotmat[10], tmp));
+    iit_world[3] = (muldiv(t28,  rotmat[0], tmp) +
+                    muldiv(t33,  rotmat[1], tmp) +
+                    muldiv(t38,  rotmat[2], tmp)) ;
+    iit_world[4] = (muldiv(t28,  rotmat[4], tmp) +
+                    muldiv(t33,  rotmat[5], tmp) +
+                    muldiv(t38,  rotmat[6], tmp)) ;
+    iit_world[5] = (muldiv(t28,  rotmat[8], tmp) +
+                    muldiv(t33,  rotmat[9], tmp) +
+                    muldiv(t38,  rotmat[10], tmp));
+    iit_world[6] = (muldiv(t52,  rotmat[0], tmp) +
+                    muldiv(t57,  rotmat[1], tmp) +
+                    muldiv(t62,  rotmat[2], tmp)) ;
+    iit_world[7] = (muldiv(t52,  rotmat[4], tmp) +
+                    muldiv(t57,  rotmat[5], tmp) +
+                    muldiv(t62,  rotmat[6], tmp)) ;
+    iit_world[8] = (muldiv(t52,  rotmat[8], tmp) +
+                    muldiv(t57,  rotmat[9], tmp) +
+                    muldiv(t62,  rotmat[10], tmp));
 }
+
+// inline void _transform_inertia_tensor(int[9] iit_world, int[9] iit_body, int[12] rotmat) {
+//     int t4  = (rotmat[0]  * iit_body[0] +
+//                rotmat[1]  * iit_body[3] +
+//                rotmat[2]  * iit_body[6]) / 1000;
+//     int t9  = (rotmat[0]  * iit_body[1] +
+//                rotmat[1]  * iit_body[4] +
+//                rotmat[2]  * iit_body[7]) / 1000;
+//     int t14 = (rotmat[0]  * iit_body[2] +
+//                rotmat[1]  * iit_body[5] +
+//                rotmat[2]  * iit_body[8]) / 1000;
+//     int t28 = (rotmat[4]  * iit_body[0] +
+//                rotmat[5]  * iit_body[3] +
+//                rotmat[6]  * iit_body[6]) / 1000;
+//     int t33 = (rotmat[4]  * iit_body[1] +
+//                rotmat[5]  * iit_body[4] +
+//                rotmat[6]  * iit_body[7]) / 1000;
+//     int t38 = (rotmat[4]  * iit_body[2] +
+//                rotmat[5]  * iit_body[5] +
+//                rotmat[6]  * iit_body[8]) / 1000;
+//     int t52 = (rotmat[8]  * iit_body[0] +
+//                rotmat[9]  * iit_body[3] +
+//                rotmat[10] * iit_body[6]) / 1000;
+//     int t57 = (rotmat[8]  * iit_body[1] +
+//                rotmat[9]  * iit_body[4] +
+//                rotmat[10] * iit_body[7]) / 1000;
+//     int t62 = (rotmat[8]  * iit_body[2] +
+//                rotmat[9]  * iit_body[5] +
+//                rotmat[10] * iit_body[8]) / 1000;
+
+//     iit_world[0] = (t4  * rotmat[0] +
+//                     t9  * rotmat[1] +
+//                     t14 * rotmat[2])  / 1000;
+//     iit_world[1] = (t4  * rotmat[4] +
+//                     t9  * rotmat[5] +
+//                     t14 * rotmat[6])  / 1000;
+//     iit_world[2] = (t4  * rotmat[8] +
+//                     t9  * rotmat[9] +
+//                     t14 * rotmat[10]) / 1000;
+//     iit_world[3] = (t28 * rotmat[0] +
+//                     t33 * rotmat[1] +
+//                     t38 * rotmat[2])  / 1000;
+//     iit_world[4] = (t28 * rotmat[4] +
+//                     t33 * rotmat[5] +
+//                     t38 * rotmat[6])  / 1000;
+//     iit_world[5] = (t28 * rotmat[8] +
+//                     t33 * rotmat[9] +
+//                     t38 * rotmat[10]) / 1000;
+//     iit_world[6] = (t52 * rotmat[0] +
+//                     t57 * rotmat[1] +
+//                     t62 * rotmat[2])  / 1000;
+//     iit_world[7] = (t52 * rotmat[4] +
+//                     t57 * rotmat[5] +
+//                     t62 * rotmat[6])  / 1000;
+//     iit_world[8] = (t52 * rotmat[8] +
+//                     t57 * rotmat[9] +
+//                     t62 * rotmat[10]) / 1000;
+// }
