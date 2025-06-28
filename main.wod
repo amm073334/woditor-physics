@@ -10,6 +10,8 @@ inline void print_3x4(int[12] m) {
 }
 
 void main() {
+    // hide cursor
+    cmd [121](9000074,0,0,0)();
     
     // int[3] test_v;
     // test_v[0] = 1000;
@@ -71,6 +73,21 @@ void main() {
 
     // int theta = 0;
     loop {
+        int x_mov;
+        int y_mov;
+        // get mouse movement since last frame
+        cmd [124](x_mov,12288,11)();
+        cmd [124](y_mov,12288,12)();
+
+        // set mouse to point to screen center
+        cmd [121](9000071,SCREEN_CENTER_X,0,0)();
+        cmd [121](9000072,SCREEN_CENTER_Y,0,0)();
+        
+        const int SENS = 1500;
+
+        Properties[0].yaw += x_mov * -SENS / 1000;
+        Properties[0].pitch -= y_mov * SENS / 1000;
+
         // X
         // test_transform[5] = cos(theta);
         // test_transform[6] = sin(theta);
