@@ -69,7 +69,7 @@ inline void rb_add_force_at_pt(int rb, int[3] force, int[3] point) {
     rb_add_force(rb, force);
 
     int[3] torque;
-    vec3_cross(torque, pt, force);
+    vec3_cross(torque, force, pt);
     rb_add_torque(rb, torque);
 }
 
@@ -99,7 +99,6 @@ inline void rb_integrate(int rb, int duration) {
 
     vec3_add_scaled(RigidBodies[rb].position, RigidBodies[rb].velocity, duration);
     quat_add_scaled(RigidBodies[rb].orientation, RigidBodies[rb].rotation, duration);
-    // print(f"or {RigidBodies[0].orientation[0]} {RigidBodies[0].orientation[1]} {RigidBodies[0].orientation[2]} {RigidBodies[0].orientation[3]}");
     
     rb_calculate_derived(rb);
     rb_clear_accum(rb);

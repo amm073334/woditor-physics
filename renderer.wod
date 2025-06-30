@@ -8,14 +8,15 @@ const int H_FOV = 900;
 const int TAN_HFOV_2 = 1000;
 const int TAN_VFOV_2 = TAN_HFOV_2 * SCREEN_HEIGHT / SCREEN_WIDTH;
 
+const int MAX_QUADS = 100;
+
 cdb Properties {
-    int x;
-    int y;
-    int z;
+    int[3] pos;
     int pitch;
     int yaw;
-    int roll;
     int indexbuf_len;
+
+    int[12] look_at;
 }
 
 cdb VertexBuffer {
@@ -45,34 +46,24 @@ cdb Cubes {
 }
 
 inline void render_buffer_vert(int i, int[3] v) {
-    int sin_pitch = sin(0 - Properties[0].pitch);
-    int cos_pitch = cos(0 - Properties[0].pitch);
-    int sin_yaw = sin(0 - Properties[0].yaw);
-    int cos_yaw = cos(0 - Properties[0].yaw);
+    int[3] transformed;
+    mat3x4_transform(transformed, Properties[0].look_at, v);
 
-    int x_trans = v[0] - Properties[0].x;
-    int y_trans = v[1] - Properties[0].y;
-    int z_trans = v[2] - Properties[0].z;
-
-    int x_rot = x_trans * cos_yaw - z_trans * sin_yaw;
-    int z_rot = (x_trans * sin_yaw + z_trans * cos_yaw) / 1000;
-    int y_rot = z_rot * sin_pitch + y_trans * cos_pitch;
-    z_rot = (z_rot * cos_pitch - y_trans * sin_pitch) / 1000;
-
-    if (z_rot <= 0) {
+    if (transformed[2] <= 0) {
         VertexBuffer[i].z = 0;
         return;
     }
 
-    int screen_x = x_rot * SCREEN_CENTER_X / (z_rot * TAN_HFOV_2) + SCREEN_CENTER_X;
-    int screen_y = -(y_rot * SCREEN_CENTER_Y / (z_rot * TAN_VFOV_2)) + SCREEN_CENTER_Y;
+    int screen_x = transformed[0] * SCREEN_CENTER_X / (transformed[2] * TAN_HFOV_2 / 1000) + SCREEN_CENTER_X;
+    int screen_y = -(transformed[1] * SCREEN_CENTER_Y / (transformed[2] * TAN_VFOV_2 / 1000)) + SCREEN_CENTER_Y;
 
     VertexBuffer[i].x = screen_x;
     VertexBuffer[i].y = screen_y;
-    VertexBuffer[i].z = z_rot;
+    VertexBuffer[i].z = transformed[2];
 }
 
 inline void render_draw() {
+    cmd [150](16777218,0,0,0,0,MAX_QUADS)();
     int i = 0;
     loop (Properties[0].indexbuf_len) {
         int avg_z = VertexBuffer[IndexBuffer[i].ul].z
@@ -88,6 +79,10 @@ inline void render_draw() {
 
     i = 0;
     loop (Properties[0].indexbuf_len) {
+        if (IndexBuffer[i].z == 0) {
+            i += 1;
+            continue;
+        }
         int v = IndexBuffer[i].ul;
         int ul_x = VertexBuffer[v].x;
         int ul_y = VertexBuffer[v].y;

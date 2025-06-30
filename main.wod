@@ -9,102 +9,86 @@ inline void print_3x4(int[12] m) {
     print(f"{m[8]} {m[9]} {m[10]} {m[11]}");
 }
 
+inline void print_rb_transform() {
+    print("");
+    print(f"{RigidBodies[0].transform[0]} {RigidBodies[0].transform[1]} {RigidBodies[0].transform[2]} {RigidBodies[0].transform[3]}");        
+    print(f"{RigidBodies[0].transform[4]} {RigidBodies[0].transform[5]} {RigidBodies[0].transform[6]} {RigidBodies[0].transform[7]}");        
+    print(f"{RigidBodies[0].transform[8]} {RigidBodies[0].transform[9]} {RigidBodies[0].transform[10]} {RigidBodies[0].transform[11]}");        
+    print("");
+}
+
+inline void print_camera_prop() {
+    print(f"({Properties[0].pos[0]}, {Properties[0].pos[1]}, {Properties[0].pos[2]}) {Properties[0].yaw} {Properties[0].pitch}");
+}
+
 void main() {
     // hide cursor
     cmd [121](9000074,0,0,0)();
-    
-    // int[3] test_v;
-    // test_v[0] = 1000;
-    // test_v[1] = 2000;
-    // test_v[2] = 4000;
-    
-    // int[4] test_q;
-    // test_q[0] = 0;
-    // test_q[1] = 4000;
-    // test_q[2] = 4000;
-    // test_q[3] = 3000;
+    const int MOVE_SPEED = 300;
+    const int SENS = 1500;
 
-    // int[12] test_m;
-
-    // _calculate_transform(test_m, test_v, test_q);
-    // print_3x4(test_m);
-    // return;
-
-    // int[9] test_mat;
-    // test_mat[0] = 1000;
-    // test_mat[1] = -4000;
-    // test_mat[2] = 2000;
-    // test_mat[3] = -2000;
-    // test_mat[4] = 1000;
-    // test_mat[5] = 3000;
-    // test_mat[6] = 2000;
-    // test_mat[7] = 6000;
-    // test_mat[8] = 8000;
-
-    // int[9] test_out;
-    // mat3x3_invert(test_out, test_mat);
-    // print(f"{test_out[0]} {test_out[1]} {test_out[2]}");
-    // print(f"{test_out[3]} {test_out[4]} {test_out[5]}");
-    // print(f"{test_out[6]} {test_out[7]} {test_out[8]}");
-
-    // return;
-
-    const int MOVE_SPEED = 30;
-
-    render_init_cube(64);
+    render_init_cube(1000);
     rb_init_cube(0, 1000, 1000);
     rb_calculate_derived(0);
     RigidBodies[0].position[2] = 500;
     RigidBodies[0].acceleration[1] = 0;
 
-    // int[12] test_transform;
-    // test_transform[0] = 1000;
-    // test_transform[1] = 0;
-    // test_transform[2] = 0;
-    // test_transform[3] = 0;
-    // test_transform[4] = 0;
-    // test_transform[5] = 1000;
-    // test_transform[6] = 0;
-    // test_transform[7] = 0;
-    // test_transform[8] = 0;
-    // test_transform[9] = 0;
-    // test_transform[10] = 1000;
-    // test_transform[11] = 0;
-
-    // int theta = 0;
+    Properties[0].pos[2] = -5000;
+    
+    Properties[0].yaw = 900;
     loop {
-        int x_mov;
-        int y_mov;
-        // get mouse movement since last frame
-        cmd [124](x_mov,12288,11)();
-        cmd [124](y_mov,12288,12)();
-
         // set mouse to point to screen center
         cmd [121](9000071,SCREEN_CENTER_X,0,0)();
         cmd [121](9000072,SCREEN_CENTER_Y,0,0)();
+
+        // get mouse movement since last frame
+        int mouse_x_mov;
+        int mouse_y_mov;
+        cmd [124](mouse_x_mov,12288,11)();
+        cmd [124](mouse_y_mov,12288,12)();
+
         
-        const int SENS = 1500;
+        Properties[0].yaw -= mouse_x_mov * SENS / 1000;
+        Properties[0].pitch -= mouse_y_mov * SENS / 1000;
 
-        Properties[0].yaw += x_mov * -SENS / 1000;
-        Properties[0].pitch -= y_mov * SENS / 1000;
+        if (Properties[0].pitch > 890) Properties[0].pitch = 890;
+        if (Properties[0].pitch < -890) Properties[0].pitch = -890;
 
-        // X
-        // test_transform[5] = cos(theta);
-        // test_transform[6] = sin(theta);
-        // test_transform[9] = -sin(theta);
-        // test_transform[10] = cos(theta);
-        
-        // Y
-        // test_transform[0] = cos(theta);
-        // test_transform[2] = -sin(theta);
-        // test_transform[8] = sin(theta);
-        // test_transform[10] = cos(theta);
+        int[3] forward;
+        forward[0] = cos(Properties[0].yaw) * cos(Properties[0].pitch) / 1000;
+        forward[1] = sin(Properties[0].pitch);
+        forward[2] = sin(Properties[0].yaw) * cos(Properties[0].pitch) / 1000;
+        vec3_normalize(forward);
 
-        // Z
-        // test_transform[0] = cos(theta);
-        // test_transform[1] = -sin(theta);
-        // test_transform[4] = sin(theta);
-        // test_transform[5] = cos(theta);
+        int[3] right;
+        {
+            int[3] t_up;
+            t_up[0] = 0;
+            t_up[1] = 1000;
+            t_up[2] = 0;
+            vec3_cross(right, t_up, forward);
+            vec3_normalize(right);
+        }
+
+        int[3] up;
+        // vec3_cross(up, right, forward);
+        vec3_cross(up, forward, right);
+
+        Properties[0].look_at[0] = right[0];
+        Properties[0].look_at[1] = right[1];
+        Properties[0].look_at[2] = right[2];
+        Properties[0].look_at[3] = -vec3_dot(right, Properties[0].pos);
+        Properties[0].look_at[4] = up[0];
+        Properties[0].look_at[5] = up[1];
+        Properties[0].look_at[6] = up[2];
+        Properties[0].look_at[7] = -vec3_dot(up, Properties[0].pos);
+        Properties[0].look_at[8] = forward[0];
+        Properties[0].look_at[9] = forward[1];
+        Properties[0].look_at[10] = forward[2];
+        Properties[0].look_at[11] = -vec3_dot(forward, Properties[0].pos);
+
+        print_camera_prop();
+
         rb_clear_accum(0);
         if (key(125)) {
             int[3] force;
@@ -116,11 +100,9 @@ void main() {
         if (key(124)) {
             int[3] torque;
             torque[0] = 1000;
-            torque[1] = 1500;
-            torque[2] = 2000;
+            torque[1] = 0;
+            torque[2] = 0;
             rb_add_torque(0, torque);
-        } else {
-            // theta += 2000;
         }
         if (key(123)) {
             int[3] force;
@@ -135,38 +117,33 @@ void main() {
         }
 
         rb_integrate(0, 16);
-
-        print("");
-        print(f"{RigidBodies[0].transform[0]} {RigidBodies[0].transform[1]} {RigidBodies[0].transform[2]} {RigidBodies[0].transform[3]}");        
-        print(f"{RigidBodies[0].transform[4]} {RigidBodies[0].transform[5]} {RigidBodies[0].transform[6]} {RigidBodies[0].transform[7]}");        
-        print(f"{RigidBodies[0].transform[8]} {RigidBodies[0].transform[9]} {RigidBodies[0].transform[10]} {RigidBodies[0].transform[11]}");        
-        print("");
+        
         render_buffer_cube(RigidBodies[0].transform);
-        // render_buffer_cube(test_transform);
         render_draw();
 
-        int mov_x = cos(Properties[0].yaw) * MOVE_SPEED / 1000;
-        int mov_z = sin(Properties[0].yaw) * MOVE_SPEED / 1000;
-        if (key(132)) {
-            Properties[0].x += mov_x;
-            Properties[0].z += mov_z;
+        if (key(117)) { // W
+            vec3_add_scaled(Properties[0].pos, forward, MOVE_SPEED);
         }
-        if (key(130)) {
-            Properties[0].x -= mov_x;
-            Properties[0].z -= mov_z;
+        if (key(131)){ // S
+            vec3_add_scaled(Properties[0].pos, forward, -MOVE_SPEED);
         }
-        mov_x = cos(Properties[0].yaw + 900) * MOVE_SPEED / 1000;
-        mov_z = sin(Properties[0].yaw + 900) * MOVE_SPEED / 1000;
-        if (key(117)) {
-            Properties[0].x += mov_x;
-            Properties[0].z += mov_z;
+        if (key(130)) { // A
+            vec3_add_scaled(Properties[0].pos, right, -MOVE_SPEED);
         }
-        if (key(131)){
-            Properties[0].x -= mov_x;
-            Properties[0].z -= mov_z;
+        if (key(132)) { // D
+            vec3_add_scaled(Properties[0].pos, right, MOVE_SPEED);
         }
-        if (key(136)) Properties[0].yaw += MOVE_SPEED;
-        if (key(138)) Properties[0].yaw -= MOVE_SPEED;
+
+        int[3] world_up;
+        world_up[0] = 0;
+        world_up[1] = 1000;
+        world_up[2] = 0;
+        if (key(116)) { // Q
+            vec3_add_scaled(Properties[0].pos, world_up, -MOVE_SPEED);
+        }
+        if (key(118)) { // E
+            vec3_add_scaled(Properties[0].pos, world_up, MOVE_SPEED);
+        }
         wait(1);
     }
 }
@@ -180,6 +157,6 @@ inline void start_frame(int n_rb) {
 
 inline void run_physics(int n_rb) {
     for (int i = 0; i < n_rb; i += 1) {
-        rb_integrate(i, 1000);
+        rb_integrate(i, 16);
     }
 }

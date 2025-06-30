@@ -56,8 +56,7 @@ inline void vec3_mul(int[3] r, int[3] a, int[3] b) {
     r[2] = (a[2] * b[2]) / 1000;
 }
 
-// TODO: change to left-handed?
-inline void vec3_cross(int[3] r, int[3] b, int[3] a) {
+inline void vec3_cross(int[3] r, int[3] a, int[3] b) {
     r[0] = (a[1]*b[2] - a[2]*b[1]) / 1000;
     r[1] = (a[2]*b[0] - a[0]*b[2]) / 1000;
     r[2] = (a[0]*b[1] - a[1]*b[0]) / 1000;
@@ -153,13 +152,9 @@ inline void mat3x3_invert(int[9] r, int[9] m) {
     int t12 = m[1]*m[6];
     int t14 = m[2]*m[6];
 
+    // assume det != 0
     int det = muldiv(t4, m[8], 1000) - muldiv(t6, m[7], 1000) - muldiv(t8, m[8], 1000) +
               muldiv(t10, m[7], 1000) + muldiv(t12, m[5], 1000) - muldiv(t14, m[4], 1000);
-
-    if (det == 0) {
-        print("3x3 uninvertible");
-        return;
-    }
 
     r[0] = muldiv( (m[4]*m[8]        - m[5]*m[7]), 1000, det);
     r[1] = muldiv(-(m[1]*m[8]        - m[2]*m[7]), 1000, det);
@@ -181,13 +176,10 @@ inline void mat3x3_invert_fast(int[9] r, int[9] m) {
     int t12 = m[1]*m[6] / 1000;
     int t14 = m[2]*m[6] / 1000;
 
+    // assume det != 0
     int det = t4*m[8] - t6*m[7] - t8*m[8] +
               t10*m[7] + t12*m[5] - t14*m[4];
 
-    if (det == 0) {
-        print("3x3 uninvertible");
-        return;
-    }
     det /= 1000;
     int idet = 1000000 / det;
 
@@ -258,10 +250,8 @@ inline void mat3x4_invert(int[12] r, int[12] m) {
                m[0]*m[9] / 1000 * m[6] -
                m[4]*m[1] / 1000 * m[10]+
                m[0]*m[5] / 1000 * m[10];
-    if (det == 0) {
-        print("3x4 uninvertible");
-        return;
-    }
+
+    // assume det != 0
     det /= 1000;
     int idet = 1000000 / det;
 
