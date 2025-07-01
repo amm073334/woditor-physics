@@ -11,18 +11,15 @@ const int TAN_VFOV_2 = TAN_HFOV_2 * SCREEN_HEIGHT / SCREEN_WIDTH;
 const int MAX_QUADS = 100;
 
 cdb Properties {
-    int[3] pos;
-    int pitch;
-    int yaw;
     int indexbuf_len;
-
     int[12] look_at;
 }
 
 cdb VertexBuffer {
-    int x;
-    int y;
-    int z;
+    int[3] world_space;
+    int[3] camera_space;
+    int screen_x;
+    int screen_y;
 }
 
 cdb IndexBuffer {
@@ -46,30 +43,30 @@ cdb Cubes {
 }
 
 inline void render_buffer_vert(int i, int[3] v) {
-    int[3] transformed;
-    mat3x4_transform(transformed, Properties[0].look_at, v);
+    vec3_copy(VertexBuffer[i].world_space, v);
+    mat3x4_transform(VertexBuffer[i].camera_space, Properties[0].look_at, v);
 
-    if (transformed[2] <= 0) {
-        VertexBuffer[i].z = 0;
+    if (VertexBuffer[i].camera_space[2] <= 0) {
         return;
     }
 
-    int screen_x = transformed[0] * SCREEN_CENTER_X / (transformed[2] * TAN_HFOV_2 / 1000) + SCREEN_CENTER_X;
-    int screen_y = -(transformed[1] * SCREEN_CENTER_Y / (transformed[2] * TAN_VFOV_2 / 1000)) + SCREEN_CENTER_Y;
-
-    VertexBuffer[i].x = screen_x;
-    VertexBuffer[i].y = screen_y;
-    VertexBuffer[i].z = transformed[2];
+    VertexBuffer[i].screen_x = 
+        VertexBuffer[i].camera_space[0] * SCREEN_CENTER_X / 
+        (VertexBuffer[i].camera_space[2] * TAN_HFOV_2 / 1000) + SCREEN_CENTER_X;
+    VertexBuffer[i].screen_y = 
+        -VertexBuffer[i].camera_space[1] * SCREEN_CENTER_Y / 
+        (VertexBuffer[i].camera_space[2] * TAN_VFOV_2 / 1000) + SCREEN_CENTER_Y;
 }
 
 inline void render_draw() {
     cmd [150](16777218,0,0,0,0,MAX_QUADS)();
+
     int i = 0;
     loop (Properties[0].indexbuf_len) {
-        int avg_z = VertexBuffer[IndexBuffer[i].ul].z
-                    + VertexBuffer[IndexBuffer[i].ur].z
-                    + VertexBuffer[IndexBuffer[i].dl].z
-                    + VertexBuffer[IndexBuffer[i].dr].z;
+        int avg_z = VertexBuffer[IndexBuffer[i].ul].camera_space[2]
+                    + VertexBuffer[IndexBuffer[i].ur].camera_space[2]
+                    + VertexBuffer[IndexBuffer[i].dl].camera_space[2]
+                    + VertexBuffer[IndexBuffer[i].dr].camera_space[2];
 
         IndexBuffer[i].z = avg_z / 4;
         i += 1;
@@ -79,31 +76,28 @@ inline void render_draw() {
 
     i = 0;
     loop (Properties[0].indexbuf_len) {
-        if (IndexBuffer[i].z == 0) {
+        int ul = IndexBuffer[i].ul;
+        int ur = IndexBuffer[i].ur;
+        int dl = IndexBuffer[i].dl;
+        int dr = IndexBuffer[i].dr;
+        
+        if (VertexBuffer[ul].camera_space[2] <= 0 ||
+            VertexBuffer[ur].camera_space[2] <= 0 ||
+            VertexBuffer[dl].camera_space[2] <= 0 ||
+            VertexBuffer[dr].camera_space[2] <= 0)
+        {
             i += 1;
             continue;
         }
-        int v = IndexBuffer[i].ul;
-        int ul_x = VertexBuffer[v].x;
-        int ul_y = VertexBuffer[v].y;
-        int do_draw = VertexBuffer[v].z;
 
-        v = IndexBuffer[i].ur;
-        int ur_x = VertexBuffer[v].x;
-        int ur_y = VertexBuffer[v].y;
-        do_draw *= VertexBuffer[v].z;
-        
-        v = IndexBuffer[i].dl;
-        int dl_x = VertexBuffer[v].x;
-        int dl_y = VertexBuffer[v].y;
-        do_draw *= VertexBuffer[v].z;
-
-        v = IndexBuffer[i].dr;
-        int dr_x = VertexBuffer[v].x;
-        int dr_y = VertexBuffer[v].y;
-        do_draw *= VertexBuffer[v].z;
-
-        if (!do_draw) continue;
+        int ul_x = VertexBuffer[ul].screen_x;
+        int ul_y = VertexBuffer[ul].screen_y;
+        int ur_x = VertexBuffer[ur].screen_x;
+        int ur_y = VertexBuffer[ur].screen_y;
+        int dl_x = VertexBuffer[dl].screen_x;
+        int dl_y = VertexBuffer[dl].screen_y;
+        int dr_x = VertexBuffer[dr].screen_x;
+        int dr_y = VertexBuffer[dr].screen_y;
 
         cmd [150]
             (67112960,
@@ -112,6 +106,13 @@ inline void render_draw() {
             100,0,0,33554432,0,0,100,100,100,0,
             ur_x,ur_y,dl_x,dl_y,dr_x,dr_y)
             ("thing.png");
+        // cmd [150]
+        //     (67112960,
+        //     i,0,1,6,i+1,255,
+        //     ul_x,ul_y,
+        //     100,0,0,33554432,0,0,100,100,100,0,
+        //     ur_x,ur_y,dl_x,dl_y,dr_x,dr_y)
+        //     ("numbered.png");
 
         i += 1;
     }
@@ -125,10 +126,10 @@ inline void render_init_cube(int half_side_len) {
     IndexBuffer[0].dl = 2;
     IndexBuffer[0].dr = 3;
     
-    IndexBuffer[1].ul = 4;
-    IndexBuffer[1].ur = 5;
-    IndexBuffer[1].dl = 6;
-    IndexBuffer[1].dr = 7;
+    IndexBuffer[1].ul = 6;
+    IndexBuffer[1].ur = 7;
+    IndexBuffer[1].dl = 4;
+    IndexBuffer[1].dr = 5;
     
     IndexBuffer[2].ul = 1;
     IndexBuffer[2].ur = 0;
@@ -207,10 +208,58 @@ inline void render_buffer_cube(int[12] transform) {
     render_buffer_vert(6, buf);
     mat3x4_transform(buf, transform, Cubes[0].v7);
     render_buffer_vert(7, buf);
-
-
 }
 
-inline void test_print_vec3(int[3] v) {
-    print(f"{v[0]} {v[1]} {v[2]}");
+inline int render_intersect_quad(int[3] r, int quad, int[3] origin, int[3] dir) {
+    int[3] n;
+    int[3] a;
+    int[3] b;
+
+    int[3] ul_pos;
+    vec3_copy(ul_pos, VertexBuffer[IndexBuffer[quad].ul].world_space);
+    vec3_sub(a, VertexBuffer[IndexBuffer[quad].ur].world_space, ul_pos);
+    vec3_sub(b, VertexBuffer[IndexBuffer[quad].dl].world_space, ul_pos);
+    
+    vec3_cross(n, a, b);
+    vec3_normalize(n);
+
+    int denom = -vec3_dot(n, dir);
+    if (denom == 0) {
+        return 0;
+    }
+
+    int t;
+    {
+        int[3] tmp;
+        vec3_sub(tmp, origin, ul_pos);
+        t = vec3_dot(tmp, n) * 1000 / denom;
+    }
+
+    vec3_copy(r, origin);
+    vec3_add_scaled(r, dir, t);
+
+    int[3] from_ul;
+    vec3_sub(from_ul, r, ul_pos);
+    
+    int u = vec3_dot(from_ul, a);
+    int v = vec3_dot(from_ul, b);
+
+    if (u >= 0 && u < vec3_dot(a, a) &&
+        v >= 0 && v < vec3_dot(b, b))
+    {
+        return t;
+    }
+    return 0;
+}
+
+inline int test_draw_line(int pic, int[3] a, int[3] b) {
+    int[3] start;
+    int[3] end;
+    vec3_copy(start, a);
+    vec3_copy(end, b);
+    render_buffer_vert(8, start);
+    render_buffer_vert(9, end);
+    int len_x = VertexBuffer[9].screen_x - VertexBuffer[8].screen_x;
+    int len_y = VertexBuffer[9].screen_y - VertexBuffer[8].screen_y;
+    cmd [150](48,pic,0,len_x,len_y,1,255,VertexBuffer[8].screen_x,VertexBuffer[8].screen_y,100,0,0,33554432,0,0,200,30,30)("<LINE-11>");
 }

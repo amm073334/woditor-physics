@@ -69,7 +69,8 @@ inline void rb_add_force_at_pt(int rb, int[3] force, int[3] point) {
     rb_add_force(rb, force);
 
     int[3] torque;
-    vec3_cross(torque, force, pt);
+    // vec3_cross(torque, force, pt);
+    vec3_cross(torque, pt, force);
     rb_add_torque(rb, torque);
 }
 

@@ -22,6 +22,12 @@ inline int muldiv(int n, int a, int b) {
     return out;
 }
 
+inline int vec3_copy(int[3] r, int[3] v) {
+    r[0] = v[0];
+    r[1] = v[1];
+    r[2] = v[2];
+}
+
 inline int vec3_dot(int[3] a, int[3] b) {
     return (a[0] * b[0] + a[1] * b[1] + a[2] * b[2]) / 1000;
 }
