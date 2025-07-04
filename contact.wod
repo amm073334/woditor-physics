@@ -1,0 +1,448 @@
+cdb Contacts {
+    int rb_0;
+    int rb_1;
+    int[3] contact_point;
+    int[3] contact_normal;
+    int penetration;
+    int[9] contact_to_world;
+    int[3] contact_velocity;
+    int desired_delta_velocity;
+    int[3] rel_contact_pos_0;
+    int[3] rel_contact_pos_1;
+}
+
+cdb ContactGlobals {
+    int n_contacts;
+
+    // keep these as globals for simplicity--only implement one type of object
+    // if there are to be objects with different friction and restitution coefficients,
+    // that information will have to be added into the Contacts cdb
+    int friction;
+    int restitution;
+}
+
+const int CT_MAX_ITERS = 100;
+const int CT_POS_EPS = 10;
+const int CT_VEL_EPS = 10;
+
+inline void ct_calculate_internals(int ct, int duration) {
+    ct_calculate_contact_basis(ct);
+
+    vec3_sub(Contacts[ct].rel_contact_pos_0, Contacts[ct].contact_point, RigidBodies[Contacts[ct].rb_0].position);
+    if (Contacts[ct].rb_1 >= 0) {
+        vec3_sub(Contacts[ct].rel_contact_pos_1, Contacts[ct].contact_point, RigidBodies[Contacts[ct].rb_1].position);
+    }
+
+    ct_calculate_local_velocity(ct, Contacts[ct].contact_velocity, duration, Contacts[ct].rb_0, Contacts[ct].rel_contact_pos_0);
+    if (Contacts[ct].rb_1 >= 0) {
+        int[3] tmp;
+        ct_calculate_local_velocity(ct, tmp, duration, Contacts[ct].rb_1, Contacts[ct].rel_contact_pos_1);
+        vec3_sub_update(Contacts[ct].contact_velocity, tmp);
+    }
+
+    ct_calculate_desired_delta_velocity(ct, duration);
+}
+
+inline void ct_calculate_desired_delta_velocity(int ct, int duration) {
+    const int VELOCITY_LIMIT = 250;
+
+    int velocity_from_accel = 0;
+    int[3] contact_normal;
+    vec3_copy(contact_normal, Contacts[ct].contact_normal); 
+    velocity_from_accel += vec3_dot(RigidBodies[Contacts[ct].rb_0].last_frame_acceleration, contact_normal) * duration / 1000;
+
+    int rb_1 = Contacts[ct].rb_1;
+    if (rb_1 >= 0)
+        velocity_from_accel -= vec3_dot(RigidBodies[rb_1].last_frame_acceleration, contact_normal) * duration / 1000;
+
+    int contact_vel_x = Contacts[ct].contact_velocity[0];
+    int restitution = ContactGlobals[0].restitution;
+    if (abs(contact_vel_x) < VELOCITY_LIMIT) restitution = 0;
+
+    Contacts[ct].desired_delta_velocity = -contact_vel_x - restitution * (contact_vel_x - velocity_from_accel) / 1000;
+}
+
+inline void ct_calculate_local_velocity(int ct, int[3] r, int duration, int rb, int[3] rel_contact_pos) {
+    int[3] vel;
+    vec3_cross(vel, RigidBodies[rb].rotation, rel_contact_pos);
+    vec3_add_update(vel, RigidBodies[rb].velocity);
+
+    int[3] contact_vel;
+    mat3x3_transform_transpose(contact_vel, Contacts[ct].contact_to_world, vel);
+
+    int[3] accel_vel_world;
+    vec3_scale(accel_vel_world, RigidBodies[rb].last_frame_acceleration, duration);
+
+    int[3] accel_vel;
+    mat3x3_transform_transpose(accel_vel, Contacts[ct].contact_to_world, accel_vel_world);
+    
+    accel_vel[0] = 0;
+
+    vec3_add(r, contact_vel, accel_vel);
+}
+
+inline void ct_calculate_contact_basis(int ct) {
+    // TODO: left-right handedness
+    int[3] contact_tangent_0;
+    int[3] contact_tangent_1;
+
+    int[3] contact_normal;
+    vec3_copy(contact_normal, Contacts[ct].contact_normal);
+    if (abs(contact_normal[0]) > abs(contact_normal[1])) {
+        int s = sqrt(contact_normal[2]*contact_normal[2] + contact_normal[0]*contact_normal[0]) / 1000;
+
+        contact_tangent_0[0] = contact_normal[2] * 1000 / s;
+        contact_tangent_0[1] = 0;
+        contact_tangent_0[2] = -contact_normal[0] * 1000 / s;
+        
+        contact_tangent_1[0] = contact_normal[1]*contact_tangent_0[0] / 1000;
+        contact_tangent_1[1] = (contact_normal[2]*contact_tangent_0[0] - contact_normal[0]*contact_tangent_0[2]) / 1000;
+        contact_tangent_1[2] = -contact_normal[1]*contact_tangent_0[0] / 1000;
+    } else {
+        int s = sqrt(contact_normal[2]*contact_normal[2] + contact_normal[1]*contact_normal[1]) / 1000;
+
+        contact_tangent_0[0] = 0;
+        contact_tangent_0[1] = -contact_normal[2] * 1000 / s;
+        contact_tangent_0[2] = contact_normal[1] * 1000 / s;
+        
+        contact_tangent_1[0] = (contact_normal[1]*contact_tangent_0[2] - contact_normal[2]*contact_tangent_0[1]) / 1000;
+        contact_tangent_1[1] = -contact_normal[0]*contact_tangent_0[2] / 1000;
+        contact_tangent_1[2] = contact_normal[0]*contact_tangent_0[1] / 1000;
+    }
+
+    mat3x3_set_components(Contacts[ct].contact_to_world, contact_normal, contact_tangent_0, contact_tangent_1);
+}
+
+inline void ct_calculate_frictionless_impulse(int ct, int[3] r, int[9] inv_inertia_tensor_0, int[9] inv_inertia_tensor_1) {
+    int[3] delta_vel_world;
+    int[3] contact_normal;
+    vec3_copy(contact_normal, Contacts[ct].contact_normal);
+    
+    int[3] rel_contact_pos;
+    vec3_copy(rel_contact_pos, Contacts[ct].rel_contact_pos_0);
+    {
+        int[3] tmp;
+        vec3_cross(tmp, rel_contact_pos, contact_normal);
+        int[3] tmp2;
+        mat3x3_transform(tmp2, inv_inertia_tensor_0, tmp);
+        vec3_cross(delta_vel_world, tmp2, rel_contact_pos);
+    }
+
+    int delta_vel = vec3_dot(delta_vel_world, contact_normal);
+    delta_vel += RigidBodies[Contacts[ct].rb_0].inv_mass;
+
+    if (Contacts[ct].rb_1 >= 0) {
+        vec3_copy(rel_contact_pos, Contacts[ct].rel_contact_pos_1);
+        {
+            int[3] tmp;
+            vec3_cross(tmp, rel_contact_pos, contact_normal);
+            int[3] tmp2;
+            mat3x3_transform(tmp2, inv_inertia_tensor_1, tmp);
+            vec3_cross(delta_vel_world, tmp2, rel_contact_pos);
+        }
+
+        delta_vel += vec3_dot(delta_vel_world, contact_normal);
+        delta_vel += RigidBodies[Contacts[ct].rb_1].inv_mass;
+    }
+
+    r[0] = Contacts[ct].desired_delta_velocity * 1000 / delta_vel;
+    r[1] = 0;
+    r[2] = 0;
+}
+
+inline void ct_apply_velocity_change(int ct, int[3] vel_change_0, int[3] vel_change_1, int[3] rot_change_0, int[3] rot_change_1) {
+    int rb_0 = Contacts[ct].rb_0;
+    int rb_1 = Contacts[ct].rb_1;
+    int[9] inv_inertia_tensor_0;
+    int[9] inv_inertia_tensor_1;
+
+    mat3x3_copy(inv_inertia_tensor_0, RigidBodies[rb_0].inv_inertia_tensor_world);
+    if (rb_1 >= 0)
+        mat3x3_copy(inv_inertia_tensor_1, RigidBodies[rb_1].inv_inertia_tensor_world);
+    
+    int[3] impulse;
+    {
+        int[3] impulse_contact;
+        // TODO: add friction
+        ct_calculate_frictionless_impulse(ct, impulse_contact, inv_inertia_tensor_0, inv_inertia_tensor_1);
+        mat3x3_transform(impulse, Contacts[ct].contact_to_world, impulse_contact);
+    }
+
+    int[3] impulsive_torque;
+    vec3_cross(impulsive_torque, Contacts[ct].rel_contact_pos_0, impulse);
+    mat3x3_transform(rot_change_0, inv_inertia_tensor_0, impulsive_torque);
+
+    vec3_clear(vel_change_0);
+    vec3_add_scaled(vel_change_0, impulse, RigidBodies[rb_0].inv_mass);
+
+    vec3_add_update(RigidBodies[rb_0].velocity, vel_change_0);
+    vec3_add_update(RigidBodies[rb_0].rotation, rot_change_0);
+
+    if (rb_1 >= 0) {
+        vec3_cross(impulsive_torque, impulse, Contacts[ct].rel_contact_pos_1);
+        mat3x3_transform(rot_change_1, inv_inertia_tensor_1, impulsive_torque);
+        vec3_clear(vel_change_1);
+        vec3_add_scaled(vel_change_1, impulse, -RigidBodies[rb_1].inv_mass);
+
+        vec3_add_update(RigidBodies[rb_1].velocity, vel_change_1);
+        vec3_add_update(RigidBodies[rb_1].rotation, rot_change_1);
+    }
+}
+
+inline void ct_apply_position_change(int ct, int[3] lin_change_0, int[3] lin_change_1, int[3] ang_change_0, int[3] ang_change_1, int penetration) {
+    int rb_0 = Contacts[ct].rb_0;
+    int rb_1 = Contacts[ct].rb_1;
+    
+    int[1] lin_move_0;
+    int[1] lin_move_1;
+    int[1] ang_move_0;
+    int[1] ang_move_1;
+
+    int total_inertia = 0;
+    int[1] lin_inertia_0;
+    int[1] lin_inertia_1;
+    int[1] ang_inertia_0;
+    int[1] ang_inertia_1;
+
+    int[3] contact_normal;
+    vec3_copy(contact_normal, Contacts[ct].contact_normal);
+    {
+        
+        int[3] rel_contact_pos;
+        vec3_copy(rel_contact_pos, Contacts[ct].rel_contact_pos_0);
+        _ct_apply_pos_calc_inertia(lin_inertia_0, ang_inertia_0, contact_normal, rel_contact_pos, rb_0);
+        total_inertia += lin_inertia_0[0] + ang_inertia_0[0];
+
+        if (rb_1 >= 0) {
+            vec3_copy(rel_contact_pos, Contacts[ct].rel_contact_pos_1);
+            _ct_apply_pos_calc_inertia(lin_inertia_1, ang_inertia_1, contact_normal, rel_contact_pos, rb_1);
+            total_inertia += lin_inertia_1[0] + ang_inertia_1[0];
+        }
+    }
+    {
+        int[3] rel_contact_pos;
+        int pen = Contacts[ct].penetration;
+
+        ang_move_0[0] = pen * ang_inertia_0[0] / total_inertia;
+        lin_move_0[0] = pen * lin_inertia_0[0] / total_inertia;
+        vec3_copy(rel_contact_pos, Contacts[ct].rel_contact_pos_0);
+        _ct_apply_pos_apply_changes(
+            rb_0,
+            lin_inertia_0, ang_inertia_0,
+            lin_move_0, ang_move_0,
+            lin_change_0, ang_change_0,
+            contact_normal, rel_contact_pos
+        );
+
+        if (rb_1 >= 0) {
+            ang_move_1[0] = -pen * ang_inertia_1[0] / total_inertia;
+            lin_move_1[0] = -pen * lin_inertia_1[0] / total_inertia;
+            vec3_copy(rel_contact_pos, Contacts[ct].rel_contact_pos_1);
+            _ct_apply_pos_apply_changes(
+                rb_1,
+                lin_inertia_1, ang_inertia_1,
+                lin_move_1, ang_move_1,
+                lin_change_1, ang_change_1,
+                contact_normal, rel_contact_pos
+            );
+        }
+    }
+}
+
+inline void _ct_apply_pos_calc_inertia(int[1] lin_inertia, int[1] ang_inertia, int[3] contact_normal, int[3] rel_contact_pos, int rb) {
+    int[3] ang_inertia_world;
+    {
+        int[3] tmp;
+        int[3] tmp2;
+        vec3_cross(tmp, rel_contact_pos, contact_normal);
+        mat3x3_transform(tmp2, RigidBodies[rb].inv_inertia_tensor_world, tmp);
+        vec3_cross(ang_inertia_world, tmp2, rel_contact_pos);
+    }
+    ang_inertia[0] = vec3_dot(ang_inertia_world, contact_normal);
+    lin_inertia[0] = RigidBodies[rb].inv_mass;
+}
+
+inline void _ct_apply_pos_apply_changes(
+    int rb,
+    int[1] lin_inertia, int[1] ang_inertia,
+    int[1] lin_move, int[1] ang_move,
+    int[3] lin_change, int[3] ang_change,
+    int[3] contact_normal, int[3] rel_contact_pos)
+{
+    const int ANGULAR_LIMIT = 200;
+
+    int[3] projection;
+    vec3_copy(projection, rel_contact_pos);
+    vec3_add_scaled(projection, contact_normal, -vec3_dot(rel_contact_pos, contact_normal));
+
+    int max_magnitude = ANGULAR_LIMIT * vec3_mag(projection) / 1000;
+
+    if (ang_move[0] < -max_magnitude) {
+        int total_move = ang_move[0] + lin_move[0];
+        ang_move[0] = -max_magnitude;
+        lin_move[0] = total_move - ang_move[0];
+    } else if (ang_move[0] > max_magnitude) {
+        int total_move = ang_move[0] + lin_move[0];
+        ang_move[0] = max_magnitude;
+        lin_move[0] = total_move - ang_move[0];
+    }
+
+    if (ang_move[0] == 0) {
+        vec3_clear(ang_change);
+    } else {
+        int[3] target_ang_dir;
+        vec3_cross(target_ang_dir, rel_contact_pos, contact_normal);
+        mat3x3_transform(ang_change, RigidBodies[rb].inv_inertia_tensor_world, target_ang_dir);
+        vec3_scale_update(ang_change, ang_move[0] * 1000 / ang_inertia[0]);
+    }
+
+    vec3_scale(lin_change, contact_normal, lin_move[0]);
+
+    vec3_add_scaled(RigidBodies[rb].position, contact_normal, lin_move[0]);
+    quat_add_scaled(RigidBodies[rb].orientation, ang_change, 1000);
+    rb_calculate_derived(rb);
+}
+
+inline void ct_resolve(int duration) {
+    if (ContactGlobals[0].n_contacts <= 0) return;
+
+    ct_prepare(duration);
+    ct_adjust_pos(duration);
+    ct_adjust_vel(duration);
+}
+
+inline void ct_prepare(int duration) {
+    for (int i = 0; i < ContactGlobals[0].n_contacts; i += 1)
+        ct_calculate_internals(i, duration);
+}
+
+inline void ct_adjust_pos(int duration) {
+    int test = 0;
+    int[3] lin_change_0;
+    int[3] lin_change_1;
+    int[3] ang_change_0;
+    int[3] ang_change_1;
+
+    int n_contacts = ContactGlobals[0].n_contacts;
+    for (int iters = 0; iters < CT_MAX_ITERS; iters += 1) {
+        int max = CT_POS_EPS;
+        int index = n_contacts;
+        for (int i = 0; i < n_contacts; i += 1) {
+            int pen = Contacts[i].penetration;
+            if (pen > max) {
+                max = pen;
+                index = i;
+            }
+        }
+        if (index == n_contacts) break;
+
+        ct_apply_position_change(index, lin_change_0, lin_change_1, ang_change_0, ang_change_1, max);
+
+        for (int i = 0; i < n_contacts; i += 1) {
+            int[3] delta_pos;
+            int i_rb_0 = Contacts[i].rb_0;
+            int i_rb_1 = Contacts[i].rb_1;
+            int index_rb_0 = Contacts[index].rb_0;
+            int index_rb_1 = Contacts[index].rb_1;
+            // assume that rb_0 is always valid, but that rb_1 may not be
+            if (i_rb_0 == index_rb_0) {
+                vec3_cross(delta_pos, ang_change_0, Contacts[i].rel_contact_pos_0);
+                vec3_add_update(delta_pos, lin_change_0);
+                Contacts[i].penetration -= vec3_dot(delta_pos, Contacts[i].contact_normal);
+            } else if (i_rb_0 == index_rb_1) {
+                vec3_cross(delta_pos, ang_change_1, Contacts[i].rel_contact_pos_0);
+                vec3_add_update(delta_pos, lin_change_1);
+                Contacts[i].penetration -= vec3_dot(delta_pos, Contacts[i].contact_normal);
+            }
+            if (i_rb_1 >= 0) {
+                if (i_rb_1 == index_rb_0) {
+                    vec3_cross(delta_pos, ang_change_0, Contacts[i].rel_contact_pos_1);
+                    vec3_add_update(delta_pos, lin_change_0);
+                    Contacts[i].penetration += vec3_dot(delta_pos, Contacts[i].contact_normal);
+                } else if (i_rb_1 == index_rb_1) {
+                    vec3_cross(delta_pos, ang_change_1, Contacts[i].rel_contact_pos_1);
+                    vec3_add_update(delta_pos, lin_change_1);
+                    Contacts[i].penetration += vec3_dot(delta_pos, Contacts[i].contact_normal);
+                }
+            }
+        }
+    }
+}
+
+inline void ct_adjust_vel(int duration) {
+    int[3] vel_change_0;
+    int[3] vel_change_1;
+    int[3] rot_change_0;
+    int[3] rot_change_1;
+    int[3] delta_vel;
+
+    int n_contacts = ContactGlobals[0].n_contacts;
+    for (int iters = 0; iters < CT_MAX_ITERS; iters += 1) {
+        int max = CT_VEL_EPS;
+        int index = n_contacts;
+        for (int i = 0; i < n_contacts; i += 1) {
+            int ddv = Contacts[i].desired_delta_velocity;
+            if (ddv > max) {
+                max = ddv;
+                index = i;
+            }
+        }
+        if (index == n_contacts) break;
+        
+        ct_apply_velocity_change(index, vel_change_0, vel_change_1, rot_change_0, rot_change_1);
+
+        for (int i = 0; i < n_contacts; i += 1) {
+            int[3] delta_vel;
+            int i_rb_0 = Contacts[i].rb_0;
+            int i_rb_1 = Contacts[i].rb_1;
+            int index_rb_0 = Contacts[index].rb_0;
+            int index_rb_1 = Contacts[index].rb_1;
+            if (i_rb_0 == index_rb_0) {
+                vec3_cross(delta_vel, rot_change_0, Contacts[i].rel_contact_pos_0);
+                vec3_add_update(delta_vel, vel_change_0);
+                
+                {
+                    int[3] tmp;
+                    mat3x3_transform_transpose(tmp, Contacts[i].contact_to_world, delta_vel);
+                    vec3_add_update(Contacts[i].contact_velocity, tmp);
+                }
+                ct_calculate_desired_delta_velocity(i, duration);
+            }
+            if (i_rb_0 == index_rb_1) {
+                vec3_cross(delta_vel, rot_change_1, Contacts[i].rel_contact_pos_0);
+                vec3_add_update(delta_vel, vel_change_1);
+                
+                {
+                    int[3] tmp;
+                    mat3x3_transform_transpose(tmp, Contacts[i].contact_to_world, delta_vel);
+                    vec3_add_update(Contacts[i].contact_velocity, tmp);
+                }
+                ct_calculate_desired_delta_velocity(i, duration);
+            }
+            if (i_rb_1 >= 0) {
+                if (i_rb_1 == index_rb_0) {
+                    vec3_cross(delta_vel, rot_change_0, Contacts[i].rel_contact_pos_1);
+                    vec3_add_update(delta_vel, vel_change_0);
+                    
+                    {
+                        int[3] tmp;
+                        mat3x3_transform_transpose(tmp, Contacts[i].contact_to_world, delta_vel);
+                        vec3_sub_update(Contacts[i].contact_velocity, tmp);
+                    }
+                    ct_calculate_desired_delta_velocity(i, duration);
+                }
+                if (i_rb_1 == index_rb_1) {
+                    vec3_cross(delta_vel, rot_change_1, Contacts[i].rel_contact_pos_1);
+                    vec3_sub_update(delta_vel, vel_change_1);
+                    
+                    {
+                        int[3] tmp;
+                        mat3x3_transform_transpose(tmp, Contacts[i].contact_to_world, delta_vel);
+                        vec3_sub_update(Contacts[i].contact_velocity, tmp);
+                    }
+                    ct_calculate_desired_delta_velocity(i, duration);
+                }
+            }
+        }
+    }
+}

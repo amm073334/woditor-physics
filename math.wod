@@ -16,6 +16,12 @@ inline int sqrt(int x) {
     return out;
 }
 
+inline int abs(int x) {
+    int out;
+    cmd [121](out, x, 0, 0x800)();
+    return out;
+}
+
 inline int muldiv(int n, int a, int b) {
     int out = n;
     cmd [121](out, a, b, 0x3302)();
@@ -26,6 +32,12 @@ inline int vec3_copy(int[3] r, int[3] v) {
     r[0] = v[0];
     r[1] = v[1];
     r[2] = v[2];
+}
+
+inline int vec3_clear(int[3] v) {
+    v[0] = 0;
+    v[1] = 0;
+    v[2] = 0;
 }
 
 inline int vec3_dot(int[3] a, int[3] b) {
@@ -44,16 +56,37 @@ inline void vec3_add(int[3] r, int[3] a, int[3] b) {
     r[2] = a[2] + b[2];
 }
 
+inline void vec3_add_update(int[3] r, int[3] a) {
+    r[0] += a[0];
+    r[1] += a[1];
+    r[2] += a[2];
+}
+
 inline void vec3_sub(int[3] r, int[3] a, int[3] b) {
     r[0] = a[0] - b[0];
     r[1] = a[1] - b[1];
     r[2] = a[2] - b[2];
 }
 
+inline void vec3_sub_update(int[3] r, int[3] a) {
+    r[0] -= a[0];
+    r[1] -= a[1];
+    r[2] -= a[2];
+}
+
 inline void vec3_scale(int[3] r, int[3] a, int b) {
     r[0] = a[0] * b / 1000;
     r[1] = a[1] * b / 1000;
     r[2] = a[2] * b / 1000;
+}
+
+inline void vec3_scale_update(int[3] r, int b) {
+    r[0] *= b;
+    r[1] *= b;
+    r[2] *= b;
+    r[0] /= 1000;
+    r[1] /= 1000;
+    r[2] /= 1000;
 }
 
 inline void vec3_mul(int[3] r, int[3] a, int[3] b) {
@@ -130,10 +163,28 @@ inline void quat_add_scaled(int[4] q, int[3] v, int scale) {
     q[3] += q2[3] / 2;
 }
 
+inline void mat3x3_copy(int[9] r, int[9] m) {
+    r[0] = m[0];
+    r[1] = m[1];
+    r[2] = m[2];
+    r[3] = m[3];
+    r[4] = m[4];
+    r[5] = m[5];
+    r[6] = m[6];
+    r[7] = m[7];
+    r[8] = m[8];
+}
+
 inline void mat3x3_transform(int[3] r, int[9] m, int[3] v) {
     r[0] = (v[0]*m[0] + v[1]*m[1] + v[2]*m[2]) / 1000;
     r[1] = (v[0]*m[3] + v[1]*m[4] + v[2]*m[5]) / 1000;
     r[2] = (v[0]*m[6] + v[1]*m[7] + v[2]*m[8]) / 1000;
+}
+
+inline void mat3x3_transform_transpose(int[3] r, int[9] m, int[3] v) {
+    r[0] = (v[0]*m[0] + v[1]*m[3] + v[2]*m[6]) / 1000;
+    r[1] = (v[0]*m[1] + v[1]*m[4] + v[2]*m[7]) / 1000;
+    r[2] = (v[0]*m[2] + v[1]*m[5] + v[2]*m[8]) / 1000;
 }
 
 inline void mat3x3_mul_mat3x3(int[9] r, int[9] a, int[9] b) {
@@ -222,6 +273,18 @@ inline void mat3x3_orient(int[9] m, int[4] q) {
     m[6] =        (2*q[1]*q[3] + 2*q[2]*q[0]) / 1000;
     m[7] =        (2*q[2]*q[3] - 2*q[1]*q[0]) / 1000;
     m[8] = 1000 - (2*q[1]*q[1] + 2*q[2]*q[2]) / 1000;
+}
+
+inline void mat3x3_set_components(int[9] m, int[3] a, int[3] b, int[3] c) {
+    m[0] = a[0];
+    m[1] = b[0];
+    m[2] = c[0];
+    m[3] = a[1];
+    m[4] = b[1];
+    m[5] = c[1];
+    m[6] = a[2];
+    m[7] = b[2];
+    m[8] = c[2];
 }
 
 // the "Matrix4" class from cyclone

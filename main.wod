@@ -1,13 +1,22 @@
 import "util";
 import "math";
-import "renderer";
+import "render";
 import "rb";
+import "contact";
+import "collide";
 
 inline void print_3x4(int[12] m) {
     print(f"{m[0]} {m[1]} {m[2]} {m[3]}");
     print(f"{m[4]} {m[5]} {m[6]} {m[7]}");
     print(f"{m[8]} {m[9]} {m[10]} {m[11]}");
 }
+
+inline void print_3x3(int[9] m) {
+    print(f"{m[0]} {m[1]} {m[2]}");
+    print(f"{m[3]} {m[4]} {m[5]}");
+    print(f"{m[6]} {m[7]} {m[8]}");
+}
+
 
 inline void print_rb_transform() {
     print("");
@@ -30,16 +39,20 @@ void main() {
 
     render_init_cube(1000);
     rb_init_cube(0, 1000, 1000);
+    RigidBodies[0].position[0] = 10000;
+    RigidBodies[0].position[1] = 1000;
+    RigidBodies[0].position[2] = 0;
+    RigidBodies[0].acceleration[1] = -9810;
     rb_calculate_derived(0);
-    RigidBodies[0].position[2] = 500;
-    RigidBodies[0].acceleration[1] = 0;
+
+    ContactGlobals[0].restitution = 0;
 
     int cam_yaw = 900;
     int cam_pitch = 0;
     int[3] cam_pos;
     cam_pos[0] = 0;
     cam_pos[1] = 0;
-    cam_pos[2] = -5000;
+    cam_pos[2] = 0;
     loop {
         // graphics
         cmd [150](4096,CURSOR_PICT,0,1,1,1,255,SCREEN_CENTER_X,SCREEN_CENTER_Y,100,0)("dot.png");
@@ -48,14 +61,15 @@ void main() {
         cmd [121](9000072,SCREEN_CENTER_Y,0,0)();
 
         // get mouse movement since last frame
-        int mouse_x_mov;
-        int mouse_y_mov;
-        cmd [124](mouse_x_mov,12288,11)();
-        cmd [124](mouse_y_mov,12288,12)();
-        
-        cam_yaw -= mouse_x_mov * SENS / 1000;
-        cam_pitch -= mouse_y_mov * SENS / 1000;
-
+        {
+            int mouse_x_mov;
+            int mouse_y_mov;
+            cmd [124](mouse_x_mov,12288,11)();
+            cmd [124](mouse_y_mov,12288,12)();
+            
+            cam_yaw -= mouse_x_mov * SENS / 1000;
+            cam_pitch -= mouse_y_mov * SENS / 1000;
+        }
         if (cam_pitch > 890) cam_pitch = 890;
         if (cam_pitch < -890) cam_pitch = -890;
 
@@ -72,6 +86,9 @@ void main() {
         // vec3_sub(forward, origin, cam_pos);
         vec3_normalize(forward);
 
+        // print("cam pos");
+        // print_vec3(cam_pos);
+        
         int[3] right;
         {
             int[3] t_up;
@@ -79,11 +96,13 @@ void main() {
             t_up[1] = 1000;
             t_up[2] = 0;
             vec3_cross(right, t_up, forward);
+            // vec3_cross(right, forward, t_up);
             vec3_normalize(right);
         }
 
         int[3] up;
         vec3_cross(up, forward, right);
+        // vec3_cross(up, right, forward);
 
         Properties[0].look_at[0] = right[0];
         Properties[0].look_at[1] = right[1];
@@ -111,75 +130,75 @@ void main() {
             vec3_add_scaled(cam_pos, right, MOVE_SPEED);
         }
 
-        int[3] world_up;
-        world_up[0] = 0;
-        world_up[1] = 1000;
-        world_up[2] = 0;
-        if (key(116)) { // Q
-            vec3_add_scaled(cam_pos, world_up, -MOVE_SPEED);
-        }
-        if (key(118)) { // E
-            vec3_add_scaled(cam_pos, world_up, MOVE_SPEED);
+        {
+            int[3] world_up;
+            world_up[0] = 0;
+            world_up[1] = 1000;
+            world_up[2] = 0;
+            if (key(116)) { // Q
+                vec3_add_scaled(cam_pos, world_up, -MOVE_SPEED);
+            }
+            if (key(118)) { // E
+                vec3_add_scaled(cam_pos, world_up, MOVE_SPEED);
+            }
         }
         
         render_buffer_cube(RigidBodies[0].transform);
         render_draw();
         
         // physics
-        rb_clear_accum(0);
-        if (key(125)) {
-            int[3] force;
-            force[0] = 0;
-            force[1] = 1000;
-            force[2] = 0;
-            rb_add_force(0, force);
-        }
-        if (key(124)) {
-            int[3] torque;
-            torque[0] = 1000;
-            torque[1] = 2000;
-            torque[2] = 3000;
-            rb_add_torque(0, torque);
-        }
-        if (key(123)) {
-            int[3] force;
-            force[0] = 1000;
-            force[1] = 2000;
-            force[2] = 1234;
-            int[3] point;
-            point[0] = 50;
-            point[1] = 50;
-            point[2] = 0;
-            rb_add_force_at_pt(0, force, point);
-        }
+        int test;
+        cmd [123](test,135425,157)();
+        if (1) {
 
-        int min_t = 0;
-        int[3] min_p;
-        for (int i = 0; i < Properties[0].indexbuf_len; i += 1) {
-            int[3] p;
-            int t = render_intersect_quad(p, i, cam_pos, forward);
-            if (t > 0 && (min_t == 0 || t < min_t)) {
-                min_t = t;
-                vec3_copy(min_p, p);
+            rb_clear_accum(0);
+
+            {
+                int min_t = 0;
+                int[3] min_p;
+                for (int i = 0; i < Properties[0].indexbuf_len; i += 1) {
+                    int[3] p;
+                    int t = render_intersect_quad(p, i, cam_pos, forward);
+                    if (t > 0 && (min_t == 0 || t < min_t)) {
+                        min_t = t;
+                        vec3_copy(min_p, p);
+                    }
+                }
+                
+                if (min_t > 0) {
+                    cmd [150](4263681,CURSOR_PICT,0,0,0,-1000000,-1000000,0,0,-1000000,-1000000,0,33554432,0,0,200,30,30)();
+                    int click;
+                    cmd [124](click,12288,7)();
+                    if (click) {
+                        cmd [150](4263681,CURSOR_PICT,0,0,0,-1000000,-1000000,0,0,-1000000,-1000000,0,33554432,0,0,30,30,200)();
+                        int[3] force;
+                        vec3_clear(force);
+                        vec3_add_scaled(force, forward, 10000);
+                        rb_add_force_at_pt(0, force, min_p);
+                    }
+                }
             }
-        }
-        
-        if (min_t > 0) {
-            cmd [150](4263681,CURSOR_PICT,0,0,0,-1000000,-1000000,0,0,-1000000,-1000000,0,33554432,0,0,200,30,30)();
-            int click;
-            cmd [124](click,12288,7)();
-            if (click) {
-                cmd [150](4263681,CURSOR_PICT,0,0,0,-1000000,-1000000,0,0,-1000000,-1000000,0,33554432,0,0,30,30,200)();
-                rb_add_force_at_pt(0, forward, min_p);
+
+            rb_integrate(0, 16);
+
+            // delete all contacts
+            cmd [252](5,0,0,4096,1000)("","","","");
+            ContactGlobals[0].n_contacts = 0;
+            
+            {
+                int[3] plane_normal;
+                plane_normal[0] = 0;
+                plane_normal[1] = 1000;
+                plane_normal[2] = 0;
+                collide_box_and_halfspace(0, plane_normal, 0);
             }
+            ct_resolve(16);
+
         }
-
-        rb_integrate(0, 16);
-
-        // force position
-        RigidBodies[0].position[0] = 0;
-        RigidBodies[0].position[1] = 500;
-        RigidBodies[0].position[2] = 0;
+        // // force position
+        // RigidBodies[0].position[0] = 0;
+        // RigidBodies[0].position[1] = 500;
+        // RigidBodies[0].position[2] = 0;
         wait(1);
     }
 }

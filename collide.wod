@@ -1,0 +1,99 @@
+inline void get_axis_0(int[3] r, int rb) {
+    r[0] = RigidBodies[rb].transform[0];
+    r[1] = RigidBodies[rb].transform[4];
+    r[2] = RigidBodies[rb].transform[8];
+}
+
+inline void get_axis_1(int[3] r, int rb) {
+    r[0] = RigidBodies[rb].transform[5];
+    r[1] = RigidBodies[rb].transform[6];
+    r[2] = RigidBodies[rb].transform[9];
+}
+
+inline void get_axis_2(int[3] r, int rb) {
+    r[0] = RigidBodies[rb].transform[6];
+    r[1] = RigidBodies[rb].transform[7];
+    r[2] = RigidBodies[rb].transform[10];
+}
+
+inline void get_axis_3(int[3] r, int rb) {
+    r[0] = RigidBodies[rb].transform[7];
+    r[1] = RigidBodies[rb].transform[8];
+    r[2] = RigidBodies[rb].transform[11];
+}
+
+inline int transform_to_axis(int rb, int[3] axis) {
+
+}
+
+inline void _collide_box_vertex_and_halfspace(int rb, int[3] vertex, int[3] plane_normal, int plane_offset) {
+    // TODO: consider making the parameter the transform instead of the rb, so that you don't have to cdb load every iteration
+    int[3] vertex_world;
+    mat3x4_transform(vertex_world, RigidBodies[rb].transform, vertex);
+
+    int vertex_dist = vec3_dot(vertex_world, plane_normal);
+    if (vertex_dist <= plane_offset) {
+        int ct = ContactGlobals[0].n_contacts;
+        int[3] tmp;
+        vec3_copy(tmp, plane_normal);
+        vec3_scale_update(tmp, vertex_dist - plane_offset);
+        vec3_add_update(tmp, vertex_world);
+        vec3_copy(Contacts[ct].contact_point, tmp);
+        vec3_copy(Contacts[ct].contact_normal, plane_normal);
+        Contacts[ct].penetration = plane_offset - vertex_dist;
+
+        Contacts[ct].rb_0 = rb;
+        Contacts[ct].rb_1 = -1;
+        ContactGlobals[0].n_contacts += 1;
+    }
+}
+
+inline void collide_box_and_halfspace(int rb, int[3] plane_normal, int plane_offset) {
+    int test = ContactGlobals[0].n_contacts;
+
+    // TODO: if not intersecting, return early
+    int[3] vertex;
+    int half_size = RigidBodies[rb].half_size;
+
+    vertex[0] = half_size;
+    vertex[1] = half_size;
+    vertex[2] = half_size;
+    _collide_box_vertex_and_halfspace(rb, vertex, plane_normal, plane_offset);
+
+    vertex[0] = -half_size;
+    vertex[1] = half_size;
+    vertex[2] = half_size;
+    _collide_box_vertex_and_halfspace(rb, vertex, plane_normal, plane_offset);
+
+    vertex[0] = half_size;
+    vertex[1] = -half_size;
+    vertex[2] = half_size;
+    _collide_box_vertex_and_halfspace(rb, vertex, plane_normal, plane_offset);
+
+    vertex[0] = -half_size;
+    vertex[1] = -half_size;
+    vertex[2] = half_size;
+    _collide_box_vertex_and_halfspace(rb, vertex, plane_normal, plane_offset);
+
+    vertex[0] = half_size;
+    vertex[1] = half_size;
+    vertex[2] = -half_size;
+    _collide_box_vertex_and_halfspace(rb, vertex, plane_normal, plane_offset);
+
+    vertex[0] = -half_size;
+    vertex[1] = half_size;
+    vertex[2] = -half_size;
+    _collide_box_vertex_and_halfspace(rb, vertex, plane_normal, plane_offset);
+
+    vertex[0] = half_size;
+    vertex[1] = -half_size;
+    vertex[2] = -half_size;
+    _collide_box_vertex_and_halfspace(rb, vertex, plane_normal, plane_offset);
+
+    vertex[0] = -half_size;
+    vertex[1] = -half_size;
+    vertex[2] = -half_size;
+    _collide_box_vertex_and_halfspace(rb, vertex, plane_normal, plane_offset);
+}
+
+inline void collide_box_and_box() {}
