@@ -175,6 +175,18 @@ inline void mat3x3_copy(int[9] r, int[9] m) {
     r[8] = m[8];
 }
 
+inline void mat3x3_add_update(int[9] r, int[9] m) {
+    r[0] += m[0];
+    r[1] += m[1];
+    r[2] += m[2];
+    r[3] += m[3];
+    r[4] += m[4];
+    r[5] += m[5];
+    r[6] += m[6];
+    r[7] += m[7];
+    r[8] += m[8];
+}
+
 inline void mat3x3_transform(int[3] r, int[9] m, int[3] v) {
     r[0] = (v[0]*m[0] + v[1]*m[1] + v[2]*m[2]) / 1000;
     r[1] = (v[0]*m[3] + v[1]*m[4] + v[2]*m[5]) / 1000;
@@ -199,6 +211,33 @@ inline void mat3x3_mul_mat3x3(int[9] r, int[9] a, int[9] b) {
     r[6] = (a[6]*b[0] + a[7]*b[3] + a[8]*b[6]) / 1000;
     r[7] = (a[6]*b[1] + a[7]*b[4] + a[8]*b[7]) / 1000;
     r[8] = (a[6]*b[2] + a[7]*b[5] + a[8]*b[8]) / 1000;
+}
+
+inline void mat3x3_mul_mat3x3_update(int[9] r, int[9] m) {
+    int t1;
+    int t2;
+    int t3;
+
+    t1 = (r[0]*m[0] + r[1]*m[3] + r[2]*m[6]) / 1000;
+    t2 = (r[0]*m[1] + r[1]*m[4] + r[2]*m[7]) / 1000;
+    t3 = (r[0]*m[2] + r[1]*m[5] + r[2]*m[8]) / 1000;
+    r[0] = t1;
+    r[1] = t2;
+    r[2] = t3;
+
+    t1 = (r[3]*m[0] + r[4]*m[3] + r[5]*m[6]) / 1000;
+    t2 = (r[3]*m[1] + r[4]*m[4] + r[5]*m[7]) / 1000;
+    t3 = (r[3]*m[2] + r[4]*m[5] + r[5]*m[8]) / 1000;
+    r[3] = t1;
+    r[4] = t2;
+    r[5] = t3;
+
+    t1 = (r[6]*m[0] + r[7]*m[3] + r[8]*m[6]) / 1000;
+    t2 = (r[6]*m[1] + r[7]*m[4] + r[8]*m[7]) / 1000;
+    t3 = (r[6]*m[2] + r[7]*m[5] + r[8]*m[8]) / 1000;
+    r[6] = t1;
+    r[7] = t2;
+    r[8] = t3;
 }
 
 inline void mat3x3_invert(int[9] r, int[9] m) {
@@ -285,6 +324,18 @@ inline void mat3x3_set_components(int[9] m, int[3] a, int[3] b, int[3] c) {
     m[6] = a[2];
     m[7] = b[2];
     m[8] = c[2];
+}
+
+inline void mat3x3_set_skew_symmetric(int[9] m, int[3] v) {
+    m[0] = 0;
+    m[1] = -v[2];
+    m[2] = v[1];
+    m[3] = v[2];
+    m[4] = 0;
+    m[5] = -v[0];
+    m[6] = -v[1];
+    m[7] = v[0];
+    m[8] = 0;
 }
 
 // the "Matrix4" class from cyclone

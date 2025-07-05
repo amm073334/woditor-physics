@@ -17,7 +17,6 @@ inline void print_3x3(int[9] m) {
     print(f"{m[6]} {m[7]} {m[8]}");
 }
 
-
 inline void print_rb_transform() {
     print("");
     print(f"{RigidBodies[0].transform[0]} {RigidBodies[0].transform[1]} {RigidBodies[0].transform[2]} {RigidBodies[0].transform[3]}");        
@@ -40,12 +39,13 @@ void main() {
     render_init_cube(1000);
     rb_init_cube(0, 1000, 1000);
     RigidBodies[0].position[0] = 10000;
-    RigidBodies[0].position[1] = 1000;
+    RigidBodies[0].position[1] = 10000;
     RigidBodies[0].position[2] = 0;
     RigidBodies[0].acceleration[1] = -9810;
     rb_calculate_derived(0);
 
-    ContactGlobals[0].restitution = 0;
+    ContactGlobals[0].restitution = 200;
+    ContactGlobals[0].friction = 400;
 
     int cam_yaw = 900;
     int cam_pitch = 0;
@@ -85,9 +85,6 @@ void main() {
 
         // vec3_sub(forward, origin, cam_pos);
         vec3_normalize(forward);
-
-        // print("cam pos");
-        // print_vec3(cam_pos);
         
         int[3] right;
         {

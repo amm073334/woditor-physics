@@ -150,6 +150,87 @@ inline void ct_calculate_frictionless_impulse(int ct, int[3] r, int[9] inv_inert
     r[2] = 0;
 }
 
+inline void ct_calculate_friction_impulse(int ct, int[3] r, int[9] inv_inertia_tensor_0, int[9] inv_inertia_tensor_1) {
+    int inv_mass = RigidBodies[Contacts[ct].rb_0].inv_mass;
+
+    int[9] delta_vel;
+    {
+        int[9] impulse_to_torque;
+        mat3x3_set_skew_symmetric(impulse_to_torque, Contacts[ct].rel_contact_pos_0);
+        {
+            int[9] delta_vel_world;
+            {
+                mat3x3_mul_mat3x3(delta_vel_world, impulse_to_torque, inv_inertia_tensor_0);
+                mat3x3_mul_mat3x3_update(delta_vel_world, impulse_to_torque);
+                _ct_negate_mat3x3(delta_vel_world);
+            }
+
+            int rb_1 = Contacts[ct].rb_1;
+            if (rb_1 >= 0) {
+                mat3x3_set_skew_symmetric(impulse_to_torque, Contacts[ct].rel_contact_pos_1);
+
+                int[9] delta_vel_world_2;
+                {
+                    mat3x3_mul_mat3x3(delta_vel_world_2, impulse_to_torque, inv_inertia_tensor_1);
+                    mat3x3_mul_mat3x3_update(delta_vel_world_2, impulse_to_torque);
+                    _ct_negate_mat3x3(delta_vel_world_2);
+                }
+                mat3x3_add_update(delta_vel_world, delta_vel_world_2);
+                inv_mass += RigidBodies[rb_1].inv_mass;
+            }
+
+            mat3x3_transpose(delta_vel, Contacts[ct].contact_to_world);
+            mat3x3_mul_mat3x3_update(delta_vel, delta_vel_world);
+            mat3x3_mul_mat3x3_update(delta_vel, Contacts[ct].contact_to_world);
+        }
+    }
+
+    delta_vel[0] += inv_mass;
+    delta_vel[4] += inv_mass;
+    delta_vel[8] += inv_mass;
+
+    {
+        int[9] impulse_mat;
+        mat3x3_invert(impulse_mat, delta_vel);
+
+        int[3] vel_kill;
+        vel_kill[0] = Contacts[ct].desired_delta_velocity;
+        vel_kill[1] = -Contacts[ct].contact_velocity[1];
+        vel_kill[2] = -Contacts[ct].contact_velocity[2];
+
+        mat3x3_transform(r, impulse_mat, vel_kill);
+    }
+
+    int planar_impulse = sqrt(r[1]*r[1] + r[2]*r[2]);
+    int friction = ContactGlobals[0].friction;
+    if (planar_impulse > r[0] * friction) {
+        planar_impulse /= 1000;
+        r[1] = r[1] * 1000 / planar_impulse;
+        r[2] = r[2] * 1000 / planar_impulse;
+
+        r[0] = delta_vel[0] +
+            delta_vel[1] * friction / 1000 * r[1] / 1000 +
+            delta_vel[2] * friction / 1000 * r[2] / 1000;
+        r[0] = Contacts[ct].desired_delta_velocity * 1000 / r[0];
+        r[1] *= friction * r[0] / 1000;
+        r[2] *= friction * r[0] / 1000;
+        r[1] /= 1000;
+        r[2] /= 1000;
+    }
+}
+
+inline void _ct_negate_mat3x3(int[9] m) {
+    m[0] *= -1;
+    m[1] *= -1;
+    m[2] *= -1;
+    m[3] *= -1;
+    m[4] *= -1;
+    m[5] *= -1;
+    m[6] *= -1;
+    m[7] *= -1;
+    m[8] *= -1;
+}
+
 inline void ct_apply_velocity_change(int ct, int[3] vel_change_0, int[3] vel_change_1, int[3] rot_change_0, int[3] rot_change_1) {
     int rb_0 = Contacts[ct].rb_0;
     int rb_1 = Contacts[ct].rb_1;
@@ -163,8 +244,11 @@ inline void ct_apply_velocity_change(int ct, int[3] vel_change_0, int[3] vel_cha
     int[3] impulse;
     {
         int[3] impulse_contact;
-        // TODO: add friction
-        ct_calculate_frictionless_impulse(ct, impulse_contact, inv_inertia_tensor_0, inv_inertia_tensor_1);
+        if (ContactGlobals[0].friction == 0) {
+            ct_calculate_frictionless_impulse(ct, impulse_contact, inv_inertia_tensor_0, inv_inertia_tensor_1);
+        } else {
+            ct_calculate_friction_impulse(ct, impulse_contact, inv_inertia_tensor_0, inv_inertia_tensor_1);
+        }
         mat3x3_transform(impulse, Contacts[ct].contact_to_world, impulse_contact);
     }
 
@@ -317,7 +401,6 @@ inline void ct_prepare(int duration) {
 }
 
 inline void ct_adjust_pos(int duration) {
-    int test = 0;
     int[3] lin_change_0;
     int[3] lin_change_1;
     int[3] ang_change_0;
@@ -374,7 +457,6 @@ inline void ct_adjust_vel(int duration) {
     int[3] vel_change_1;
     int[3] rot_change_0;
     int[3] rot_change_1;
-    int[3] delta_vel;
 
     int n_contacts = ContactGlobals[0].n_contacts;
     for (int iters = 0; iters < CT_MAX_ITERS; iters += 1) {
@@ -407,8 +489,7 @@ inline void ct_adjust_vel(int duration) {
                     vec3_add_update(Contacts[i].contact_velocity, tmp);
                 }
                 ct_calculate_desired_delta_velocity(i, duration);
-            }
-            if (i_rb_0 == index_rb_1) {
+            } else if (i_rb_0 == index_rb_1) {
                 vec3_cross(delta_vel, rot_change_1, Contacts[i].rel_contact_pos_0);
                 vec3_add_update(delta_vel, vel_change_1);
                 
@@ -430,8 +511,7 @@ inline void ct_adjust_vel(int duration) {
                         vec3_sub_update(Contacts[i].contact_velocity, tmp);
                     }
                     ct_calculate_desired_delta_velocity(i, duration);
-                }
-                if (i_rb_1 == index_rb_1) {
+                } else if (i_rb_1 == index_rb_1) {
                     vec3_cross(delta_vel, rot_change_1, Contacts[i].rel_contact_pos_1);
                     vec3_sub_update(delta_vel, vel_change_1);
                     
