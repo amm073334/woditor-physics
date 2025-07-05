@@ -70,8 +70,8 @@ void main() {
             cam_yaw -= mouse_x_mov * SENS / 1000;
             cam_pitch -= mouse_y_mov * SENS / 1000;
         }
-        if (cam_pitch > 890) cam_pitch = 890;
-        if (cam_pitch < -890) cam_pitch = -890;
+        if (cam_pitch > 870) cam_pitch = 870;
+        if (cam_pitch < -870) cam_pitch = -870;
 
         int[3] forward;
         forward[0] = cos(cam_yaw) * cos(cam_pitch) / 1000;
@@ -139,7 +139,26 @@ void main() {
                 vec3_add_scaled(cam_pos, world_up, MOVE_SPEED);
             }
         }
+
+        if (cam_pos[1] < 0) cam_pos[1] = 0;
         
+        // draw floor/sky
+        {
+            const int FLOOR_PICT = -1;
+            const int SKY_PICT = -2;
+
+            int[3] far_away;
+            far_away[0] = forward[0] * 1000;
+            far_away[1] = 0;
+            far_away[2] = forward[2] * 1000;
+
+            int[3] far_away_cam_space;
+            mat3x4_transform(far_away_cam_space, Properties[0].look_at, far_away);
+            int far_away_y = -far_away_cam_space[1] * SCREEN_CENTER_Y / (far_away_cam_space[2] * TAN_VFOV_2 / 1000) + SCREEN_CENTER_Y;
+            cmd [150](48,SKY_PICT,0,SCREEN_WIDTH,SCREEN_HEIGHT,1,255,0,0,100,0,0,33554432,0,0,70,90,100)("<SQUARE>");
+            cmd [150](48,FLOOR_PICT,0,SCREEN_WIDTH,SCREEN_HEIGHT * 100,1,255,0,far_away_y,100,0,0,33554432,0,0,40,40,40)("<SQUARE>");
+        }
+
         render_buffer_cube(RigidBodies[0].transform);
         render_draw();
         
