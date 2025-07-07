@@ -38,10 +38,10 @@ void main() {
     const int SENS = 1500;
     const int CURSOR_PICT = 999999;
 
-    render_init_cube(0, 1000);
-    rb_init_cube(0, 1000, 2000);
-    RigidBodies[0].position[0] = 10000;
-    RigidBodies[0].position[1] = 3000;
+    render_init_cube(0, 500);
+    rb_init_cube(0, 1000, 1000);
+    RigidBodies[0].position[0] = 8000;
+    RigidBodies[0].position[1] = 1500;
     RigidBodies[0].position[2] = 0;
     RigidBodies[0].acceleration[1] = -9810;
 
@@ -55,8 +55,8 @@ void main() {
     rb_calculate_derived(0);
     rb_calculate_derived(1);
 
-    ContactGlobals[0].restitution = 0;
-    ContactGlobals[0].friction = 0;
+    ContactGlobals[0].restitution = 200;
+    ContactGlobals[0].friction = 400;
 
     int cam_yaw = 900;
     int cam_pitch = 0;
@@ -116,6 +116,8 @@ void main() {
         Properties[0].look_at[10] = forward[2];
         Properties[0].look_at[11] = -vec3_dot(forward, cam_pos);
 
+        vec3_copy(Properties[0].cam_pos, cam_pos);
+
         if (key(117)) { // W
             vec3_add_scaled(cam_pos, forward, MOVE_SPEED);
         }
@@ -160,9 +162,10 @@ void main() {
             cmd [150](48,FLOOR_PICT,0,SCREEN_WIDTH,SCREEN_HEIGHT * 100,1,255,0,far_away_y,100,0,0,33554432,0,0,40,40,40)("<SQUARE>");
         }
 
+        
+
         render_buffer_cube(0, RigidBodies[0].transform);
         render_buffer_cube(1, RigidBodies[1].transform);
-        render_draw();
         
         // physics
         int test;
@@ -195,7 +198,7 @@ void main() {
                         vec3_clear(force);
                         vec3_add_scaled(force, forward, 10000);
                         int apply_rb;
-                        if (quad < 8) apply_rb = 0;
+                        if (quad < 6) apply_rb = 0;
                         else apply_rb = 1;
                         rb_add_force_at_pt(apply_rb, force, min_p);
                     }
@@ -221,6 +224,8 @@ void main() {
             ct_resolve(16);
 
         }
+        
+        render_draw();
 
         wait(1);
     }

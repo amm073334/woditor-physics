@@ -13,6 +13,7 @@ const int MAX_QUADS = 100;
 cdb Properties {
     int indexbuf_len;
     int[12] look_at;
+    int[3] cam_pos;
 }
 
 cdb VertexBuffer {
@@ -39,7 +40,6 @@ cdb Cubes {
     int[3] v5;
     int[3] v6;
     int[3] v7;
-    int[3] v8;
 }
 
 inline void render_buffer_vert(int i, int[3] v) {
@@ -90,6 +90,11 @@ inline void render_draw() {
             continue;
         }
 
+        if (!render_is_facing(i)) {
+            i += 1;
+            continue;
+        }
+
         int ul_x = VertexBuffer[ul].screen_x;
         int ul_y = VertexBuffer[ul].screen_y;
         int ur_x = VertexBuffer[ur].screen_x;
@@ -116,40 +121,11 @@ inline void render_draw() {
 
         i += 1;
     }
+
+    Properties[0].indexbuf_len = 0;
 }
 
 inline void render_init_cube(int cube, int half_side_len) {
-    Properties[0].indexbuf_len += 6;
-
-    IndexBuffer[cube*6 + 0].ul = cube*8 + 0;
-    IndexBuffer[cube*6 + 0].ur = cube*8 + 1;
-    IndexBuffer[cube*6 + 0].dl = cube*8 + 2;
-    IndexBuffer[cube*6 + 0].dr = cube*8 + 3;
-    
-    IndexBuffer[cube*6 + 1].ul = cube*8 + 6;
-    IndexBuffer[cube*6 + 1].ur = cube*8 + 7;
-    IndexBuffer[cube*6 + 1].dl = cube*8 + 4;
-    IndexBuffer[cube*6 + 1].dr = cube*8 + 5;
-    
-    IndexBuffer[cube*6 + 2].ul = cube*8 + 1;
-    IndexBuffer[cube*6 + 2].ur = cube*8 + 0;
-    IndexBuffer[cube*6 + 2].dl = cube*8 + 5;
-    IndexBuffer[cube*6 + 2].dr = cube*8 + 4;
-    
-    IndexBuffer[cube*6 + 3].ul = cube*8 + 2;
-    IndexBuffer[cube*6 + 3].ur = cube*8 + 3;
-    IndexBuffer[cube*6 + 3].dl = cube*8 + 6;
-    IndexBuffer[cube*6 + 3].dr = cube*8 + 7;
-    
-    IndexBuffer[cube*6 + 4].ul = cube*8 + 0;
-    IndexBuffer[cube*6 + 4].ur = cube*8 + 2;
-    IndexBuffer[cube*6 + 4].dl = cube*8 + 4;
-    IndexBuffer[cube*6 + 4].dr = cube*8 + 6;
-    
-    IndexBuffer[cube*6 + 5].ul = cube*8 + 3;
-    IndexBuffer[cube*6 + 5].ur = cube*8 + 1;
-    IndexBuffer[cube*6 + 5].dl = cube*8 + 7;
-    IndexBuffer[cube*6 + 5].dr = cube*8 + 5;
     // top:
     // 0 1
     // 2 3
@@ -208,6 +184,62 @@ inline void render_buffer_cube(int cube, int[12] transform) {
     render_buffer_vert(cube*8 + 6, buf);
     mat3x4_transform(buf, transform, Cubes[cube].v7);
     render_buffer_vert(cube*8 + 7, buf);
+
+    Properties[0].indexbuf_len += 6;
+    IndexBuffer[cube*6 + 0].ul = cube*8 + 0;
+    IndexBuffer[cube*6 + 0].ur = cube*8 + 1;
+    IndexBuffer[cube*6 + 0].dl = cube*8 + 2;
+    IndexBuffer[cube*6 + 0].dr = cube*8 + 3;
+    
+    IndexBuffer[cube*6 + 1].ul = cube*8 + 6;
+    IndexBuffer[cube*6 + 1].ur = cube*8 + 7;
+    IndexBuffer[cube*6 + 1].dl = cube*8 + 4;
+    IndexBuffer[cube*6 + 1].dr = cube*8 + 5;
+    
+    IndexBuffer[cube*6 + 2].ul = cube*8 + 1;
+    IndexBuffer[cube*6 + 2].ur = cube*8 + 0;
+    IndexBuffer[cube*6 + 2].dl = cube*8 + 5;
+    IndexBuffer[cube*6 + 2].dr = cube*8 + 4;
+    
+    IndexBuffer[cube*6 + 3].ul = cube*8 + 2;
+    IndexBuffer[cube*6 + 3].ur = cube*8 + 3;
+    IndexBuffer[cube*6 + 3].dl = cube*8 + 6;
+    IndexBuffer[cube*6 + 3].dr = cube*8 + 7;
+    
+    IndexBuffer[cube*6 + 4].ul = cube*8 + 0;
+    IndexBuffer[cube*6 + 4].ur = cube*8 + 2;
+    IndexBuffer[cube*6 + 4].dl = cube*8 + 4;
+    IndexBuffer[cube*6 + 4].dr = cube*8 + 6;
+    
+    IndexBuffer[cube*6 + 5].ul = cube*8 + 3;
+    IndexBuffer[cube*6 + 5].ur = cube*8 + 1;
+    IndexBuffer[cube*6 + 5].dl = cube*8 + 7;
+    IndexBuffer[cube*6 + 5].dr = cube*8 + 5;
+}
+
+inline int render_is_facing(int quad) {
+    int[3] ul_pos;
+    int[3] a;
+    int[3] b;
+    vec3_copy(ul_pos, VertexBuffer[IndexBuffer[quad].ul].world_space);
+    vec3_sub(a, VertexBuffer[IndexBuffer[quad].ur].world_space, ul_pos);
+    vec3_sub(b, VertexBuffer[IndexBuffer[quad].dl].world_space, ul_pos);
+    
+    int[3] n;
+    vec3_cross(n, a, b);
+
+    int[3] cam_pos;
+    cam_pos[0] = Properties[0].look_at[3];
+    cam_pos[1] = Properties[0].look_at[7];
+    cam_pos[2] = Properties[0].look_at[11];
+
+    int[3] forward;
+    vec3_sub(forward, ul_pos, Properties[0].cam_pos);
+    // forward[0] = Properties[0].look_at[8];
+    // forward[1] = Properties[0].look_at[9];
+    // forward[2] = Properties[0].look_at[10];
+    if (vec3_dot(n, forward) > 0) return 0;
+    return 1;
 }
 
 inline int render_intersect_quad(int[3] r, int quad, int[3] origin, int[3] dir) {
