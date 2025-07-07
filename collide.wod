@@ -1,29 +1,48 @@
-inline void get_axis_0(int[3] r, int rb) {
+inline void get_axis_0(int rb, int[3] r) {
     r[0] = RigidBodies[rb].transform[0];
     r[1] = RigidBodies[rb].transform[4];
     r[2] = RigidBodies[rb].transform[8];
 }
 
-inline void get_axis_1(int[3] r, int rb) {
-    r[0] = RigidBodies[rb].transform[5];
-    r[1] = RigidBodies[rb].transform[6];
+inline void get_axis_1(int rb, int[3] r) {
+    r[0] = RigidBodies[rb].transform[1];
+    r[1] = RigidBodies[rb].transform[5];
     r[2] = RigidBodies[rb].transform[9];
 }
 
-inline void get_axis_2(int[3] r, int rb) {
-    r[0] = RigidBodies[rb].transform[6];
-    r[1] = RigidBodies[rb].transform[7];
+inline void get_axis_2(int rb, int[3] r) {
+    r[0] = RigidBodies[rb].transform[2];
+    r[1] = RigidBodies[rb].transform[6];
     r[2] = RigidBodies[rb].transform[10];
 }
 
-inline void get_axis_3(int[3] r, int rb) {
-    r[0] = RigidBodies[rb].transform[7];
-    r[1] = RigidBodies[rb].transform[8];
+inline void get_axis_3(int rb, int[3] r) {
+    r[0] = RigidBodies[rb].transform[3];
+    r[1] = RigidBodies[rb].transform[7];
     r[2] = RigidBodies[rb].transform[11];
 }
 
-inline int transform_to_axis(int rb, int[3] axis) {
+inline void get_axis(int rb, int[3] r, int axis) {
+    if (axis == 0) get_axis_0(rb, r);
+    else if (axis == 1) get_axis_1(rb, r);
+    else if (axis == 2) get_axis_2(rb, r);
+    else get_axis_3(rb, r);
+}
 
+inline int _collide_transform_to_axis(int rb, int[3] axis) {
+    int hs = RigidBodies[rb].half_size;
+    int[3] tmp_axis;
+
+    get_axis_0(rb, tmp_axis);
+    int out = hs * abs(vec3_dot(axis, tmp_axis));
+    
+    get_axis_1(rb, tmp_axis);
+    out += hs * abs(vec3_dot(axis, tmp_axis));
+    
+    get_axis_2(rb, tmp_axis);
+    out += hs * abs(vec3_dot(axis, tmp_axis));
+    
+    return out / 1000;
 }
 
 inline void _collide_box_vertex_and_halfspace(int rb, int[3] vertex, int[3] plane_normal, int plane_offset) {
@@ -96,4 +115,300 @@ inline void collide_box_and_halfspace(int rb, int[3] plane_normal, int plane_off
     _collide_box_vertex_and_halfspace(rb, vertex, plane_normal, plane_offset);
 }
 
-inline void collide_box_and_box() {}
+inline void collide_box_and_box(int rb_0, int rb_1) {
+    int[3] to_center;
+    {
+        int[3] rb_0_center;
+        int[3] rb_1_center;
+        get_axis_3(rb_0, rb_0_center);
+        get_axis_3(rb_1, rb_1_center);
+        vec3_sub(to_center, rb_1_center, rb_0_center);
+    }
+
+    int[1] pen;
+    int[1] best;
+    pen[0] = 0x7FFFFFFF;
+    
+    int best_single_axis;
+    
+    {
+        int[3] rb_0_0;
+        int[3] rb_0_1;
+        int[3] rb_0_2;
+        get_axis_0(rb_0, rb_0_0);
+        get_axis_1(rb_0, rb_0_1);
+        get_axis_2(rb_0, rb_0_2);
+
+        int[3] rb_1_0;
+        int[3] rb_1_1;
+        int[3] rb_1_2;
+        get_axis_0(rb_1, rb_1_0);
+        get_axis_1(rb_1, rb_1_1);
+        get_axis_2(rb_1, rb_1_2);
+
+        if (!_collide_box_box_try_axis(rb_0, rb_1, rb_0_0, to_center, 0, pen, best)) return;
+        if (!_collide_box_box_try_axis(rb_0, rb_1, rb_0_1, to_center, 1, pen, best)) return;
+        if (!_collide_box_box_try_axis(rb_0, rb_1, rb_0_2, to_center, 2, pen, best)) return;
+
+        if (!_collide_box_box_try_axis(rb_0, rb_1, rb_1_0, to_center, 3, pen, best)) return;
+        if (!_collide_box_box_try_axis(rb_0, rb_1, rb_1_1, to_center, 4, pen, best)) return;
+        if (!_collide_box_box_try_axis(rb_0, rb_1, rb_1_2, to_center, 5, pen, best)) return;
+
+        best_single_axis = best[0];
+
+        int[3] tmp_axis_0;
+        int[3] tmp_axis_1;
+        int[3] tmp_axis_2;
+        vec3_cross(tmp_axis_0, rb_0_0, rb_1_0);
+        vec3_cross(tmp_axis_1, rb_0_0, rb_1_1);
+        vec3_cross(tmp_axis_2, rb_0_0, rb_1_2);
+        if (!_collide_box_box_try_axis(rb_0, rb_1, tmp_axis_0, to_center, 6, pen, best)) return;
+        if (!_collide_box_box_try_axis(rb_0, rb_1, tmp_axis_1, to_center, 7, pen, best)) return;
+        if (!_collide_box_box_try_axis(rb_0, rb_1, tmp_axis_2, to_center, 8, pen, best)) return;
+        
+        vec3_cross(tmp_axis_0, rb_0_1, rb_1_0);
+        vec3_cross(tmp_axis_1, rb_0_1, rb_1_1);
+        vec3_cross(tmp_axis_2, rb_0_1, rb_1_2);
+        if (!_collide_box_box_try_axis(rb_0, rb_1, tmp_axis_0, to_center, 9, pen, best)) return;
+        if (!_collide_box_box_try_axis(rb_0, rb_1, tmp_axis_1, to_center, 10, pen, best)) return;
+        if (!_collide_box_box_try_axis(rb_0, rb_1, tmp_axis_2, to_center, 11, pen, best)) return;
+
+        vec3_cross(tmp_axis_0, rb_0_2, rb_1_0);
+        vec3_cross(tmp_axis_1, rb_0_2, rb_1_1);
+        vec3_cross(tmp_axis_2, rb_0_2, rb_1_2);
+        if (!_collide_box_box_try_axis(rb_0, rb_1, tmp_axis_0, to_center, 12, pen, best)) return;
+        if (!_collide_box_box_try_axis(rb_0, rb_1, tmp_axis_1, to_center, 13, pen, best)) return;
+        if (!_collide_box_box_try_axis(rb_0, rb_1, tmp_axis_2, to_center, 14, pen, best)) return;
+    }
+
+    if (best[0] < 3) {
+        _collide_box_box_fill_point_face(rb_0, rb_1, to_center, best[0], pen[0]);
+        ContactGlobals[0].n_contacts += 1;
+    } else if (best[0] < 6) {
+        _collide_negate_vector(to_center);
+        _collide_box_box_fill_point_face(rb_1, rb_0, to_center, best[0] - 3, pen[0]);
+        ContactGlobals[0].n_contacts += 1;
+    } else {
+        best[0] -= 6;
+        int one_axis_index = best[0] / 3;
+        int[3] one_axis;
+        get_axis(rb_0, one_axis, one_axis_index);
+        
+        int two_axis_index = best[0] % 3;
+        int[3] two_axis;
+        get_axis(rb_1, two_axis, two_axis_index);
+
+        int[3] axis;
+        vec3_cross(axis, one_axis, two_axis);
+        vec3_normalize(axis);
+
+        if (vec3_dot(axis, to_center) > 0) _collide_negate_vector(axis);
+
+        int hs_0 = RigidBodies[rb_0].half_size;
+        int[3] pt_on_one_edge;
+        pt_on_one_edge[0] = hs_0;
+        pt_on_one_edge[1] = hs_0;
+        pt_on_one_edge[2] = hs_0;
+        
+        int hs_1 = RigidBodies[rb_1].half_size;
+        int[3] pt_on_two_edge;
+        pt_on_two_edge[0] = hs_1;
+        pt_on_two_edge[1] = hs_1;
+        pt_on_two_edge[2] = hs_1;
+
+        {
+            // could really use a macro here
+            int[3] tmp_axis;
+            if (one_axis_index == 0) pt_on_one_edge[0] = 0; 
+            else {
+                get_axis_0(rb_0, tmp_axis);
+                if (vec3_dot(tmp_axis, axis) > 0) pt_on_one_edge[0] = -pt_on_one_edge[0];
+            }
+            if (two_axis_index == 0) pt_on_two_edge[0] = 0; 
+            else {
+                get_axis_0(rb_1, tmp_axis);
+                if (vec3_dot(tmp_axis, axis) < 0) pt_on_two_edge[0] = -pt_on_two_edge[0];
+            }
+
+            if (one_axis_index == 1) pt_on_one_edge[1] = 0; 
+            else {
+                get_axis_1(rb_0, tmp_axis);
+                if (vec3_dot(tmp_axis, axis) > 0) pt_on_one_edge[1] = -pt_on_one_edge[1];
+            }
+            if (two_axis_index == 1) pt_on_two_edge[1] = 0; 
+            else {
+                get_axis_1(rb_1, tmp_axis);
+                if (vec3_dot(tmp_axis, axis) < 0) pt_on_two_edge[1] = -pt_on_two_edge[1];
+            }
+
+            if (one_axis_index == 2) pt_on_one_edge[2] = 0; 
+            else {
+                get_axis_2(rb_0, tmp_axis);
+                if (vec3_dot(tmp_axis, axis) > 0) pt_on_one_edge[2] = -pt_on_one_edge[2];
+            }
+            if (two_axis_index == 2) pt_on_two_edge[2] = 0; 
+            else {
+                get_axis_2(rb_1, tmp_axis);
+                if (vec3_dot(tmp_axis, axis) < 0) pt_on_two_edge[2] = -pt_on_two_edge[2];
+            }
+        }
+        
+        int[3] pt_on_one_edge_world;
+        int[3] pt_on_two_edge_world;
+        mat3x4_transform(pt_on_one_edge_world, RigidBodies[rb_0].transform, pt_on_one_edge);
+        mat3x4_transform(pt_on_two_edge_world, RigidBodies[rb_1].transform, pt_on_two_edge);
+
+        int[3] vertex;
+        _collide_box_box_contact_point(
+            vertex,
+            pt_on_one_edge_world, one_axis, hs_0,
+            pt_on_two_edge_world, two_axis, hs_1,
+            best_single_axis > 2
+        );
+
+        int ct = ContactGlobals[0].n_contacts;
+        Contacts[ct].penetration = pen[0];
+        vec3_copy(Contacts[ct].contact_normal, axis);
+        vec3_copy(Contacts[ct].contact_point, vertex);
+        Contacts[ct].rb_0 = rb_0;
+        Contacts[ct].rb_1 = rb_1;
+        ContactGlobals[0].n_contacts += 1;
+    }
+}
+
+inline int _collide_box_box_find_edge_pt(
+    int i,
+    int rb_0, int rb_1,
+    int one_axis_index, int two_axis_index,
+    int[3] axis,
+    int[1] pt_on_one_edge, int[1] pt_on_two_edge)
+{
+    int[3] tmp_axis;
+    if (i == one_axis_index) pt_on_one_edge[0] = 0; 
+    else {
+        get_axis(rb_0, tmp_axis, i);
+        if (vec3_dot(tmp_axis, axis) > 0) pt_on_one_edge[0] = -pt_on_one_edge[0];
+    }
+    if (i == two_axis_index) pt_on_two_edge[0] = 0; 
+    else {
+        get_axis(rb_1, tmp_axis, i);
+        if (vec3_dot(tmp_axis, axis) > 0) pt_on_two_edge[0] = -pt_on_two_edge[0];
+    }
+}
+
+inline int _collide_box_box_penetration_on_axis(int rb_0, int rb_1, int[3] axis, int[3] to_center) {
+    int one_project = _collide_transform_to_axis(rb_0, axis);
+    int two_project = _collide_transform_to_axis(rb_1, axis);
+
+    int distance = abs(vec3_dot(to_center, axis));
+
+    return one_project + two_project - distance;
+}
+
+inline int _collide_box_box_try_axis(
+    int rb_0, int rb_1,
+    int[3] axis, int[3] to_center,
+    int index, int[1] smallest_pen, int[1] smallest_case)
+{
+    if (vec3_sqmag(axis) < 1) return 1;
+    vec3_normalize(axis);
+
+    int pen = _collide_box_box_penetration_on_axis(rb_0, rb_1, axis, to_center);
+
+    if (pen < 0) return 0;
+    if (pen < smallest_pen[0]) {
+        smallest_pen[0] = pen;
+        smallest_case[0] = index;
+    }
+    return 1;
+}
+
+inline void _collide_box_box_fill_point_face(int rb_0, int rb_1, int[3] to_center, int best, int pen) {
+    int[3] normal;
+    get_axis(rb_0, normal, best);
+    if (vec3_dot(normal, to_center) > 0) {
+        _collide_negate_vector(normal);
+    }
+
+    int[3] vertex;
+    {
+        int hs = RigidBodies[rb_1].half_size;
+        vertex[0] = hs;
+        vertex[1] = hs;
+        vertex[2] = hs;
+    }
+    {
+        int[3] tmp_axis;
+        get_axis_0(rb_1, tmp_axis);
+        if (vec3_dot(tmp_axis, normal) < 0) vertex[0] = -vertex[0];
+        get_axis_1(rb_1, tmp_axis);
+        if (vec3_dot(tmp_axis, normal) < 0) vertex[1] = -vertex[1];
+        get_axis_2(rb_1, tmp_axis);
+        if (vec3_dot(tmp_axis, normal) < 0) vertex[2] = -vertex[2];
+    }
+
+    int ct = ContactGlobals[0].n_contacts;
+    vec3_copy(Contacts[ct].contact_normal, normal);
+    Contacts[ct].penetration = pen;
+    mat3x4_transform(Contacts[ct].contact_point, RigidBodies[rb_1].transform, vertex);
+    Contacts[ct].rb_0 = rb_0;
+    Contacts[ct].rb_1 = rb_1;
+}
+
+inline void _collide_box_box_contact_point(
+    int[3] r,
+    int[3] p_one, int[3] d_one, int one_size,
+    int[3] p_two, int[3] d_two, int two_size,
+    int use_one)
+{
+    int[3] to_st;
+    int dp_sta_one;
+    int dp_sta_two;
+    int dp_one_two;
+    int sm_one;
+    int sm_two;
+    int denom;
+    int mua;
+    int mub;
+
+    sm_one = vec3_sqmag(d_one);
+    sm_two = vec3_sqmag(d_two);
+    dp_one_two = vec3_dot(d_two, d_one);
+
+    vec3_sub(to_st, p_one, p_two);
+    dp_sta_one = vec3_dot(d_one, to_st);
+    dp_sta_two = vec3_dot(d_two, to_st);
+
+    denom = (sm_one * sm_two - dp_one_two * dp_one_two) / 1000;
+    if (abs(denom) < 1) {
+        if (use_one) vec3_copy(r, p_one);
+        else vec3_copy(r, p_two);
+        return;
+    }
+
+    mua = (dp_one_two * dp_sta_two - sm_two * dp_sta_one) / denom;
+    mub = (sm_one * dp_sta_two - dp_one_two * dp_sta_one) / denom;
+
+    if (mua > one_size || mua < -one_size || mub > two_size || mub < -two_size) {
+        if (use_one) vec3_copy(r, p_one);
+        else vec3_copy(r, p_two);
+        return;
+    } else {
+        int[3] c_one;
+        vec3_copy(c_one, p_one);
+        vec3_add_scaled(c_one, d_one, mua);
+
+        int[3] c_two;
+        vec3_copy(c_two, p_two);
+        vec3_add_scaled(c_two, d_two, mub);
+
+        vec3_scale(r, c_one, 500);
+        vec3_add_scaled(r, c_two, 500);
+    }
+}
+
+inline void _collide_negate_vector(int[3] v) {
+    v[0] = -v[0];
+    v[1] = -v[1];
+    v[2] = -v[2];
+}

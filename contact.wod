@@ -82,7 +82,6 @@ inline void ct_calculate_local_velocity(int ct, int[3] r, int duration, int rb, 
 }
 
 inline void ct_calculate_contact_basis(int ct) {
-    // TODO: left-right handedness
     int[3] contact_tangent_0;
     int[3] contact_tangent_1;
 

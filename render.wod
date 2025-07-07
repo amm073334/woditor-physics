@@ -118,96 +118,96 @@ inline void render_draw() {
     }
 }
 
-inline void render_init_cube(int half_side_len) {
-    Properties[0].indexbuf_len = 6;
+inline void render_init_cube(int cube, int half_side_len) {
+    Properties[0].indexbuf_len += 6;
 
-    IndexBuffer[0].ul = 0;
-    IndexBuffer[0].ur = 1;
-    IndexBuffer[0].dl = 2;
-    IndexBuffer[0].dr = 3;
+    IndexBuffer[cube*6 + 0].ul = cube*8 + 0;
+    IndexBuffer[cube*6 + 0].ur = cube*8 + 1;
+    IndexBuffer[cube*6 + 0].dl = cube*8 + 2;
+    IndexBuffer[cube*6 + 0].dr = cube*8 + 3;
     
-    IndexBuffer[1].ul = 6;
-    IndexBuffer[1].ur = 7;
-    IndexBuffer[1].dl = 4;
-    IndexBuffer[1].dr = 5;
+    IndexBuffer[cube*6 + 1].ul = cube*8 + 6;
+    IndexBuffer[cube*6 + 1].ur = cube*8 + 7;
+    IndexBuffer[cube*6 + 1].dl = cube*8 + 4;
+    IndexBuffer[cube*6 + 1].dr = cube*8 + 5;
     
-    IndexBuffer[2].ul = 1;
-    IndexBuffer[2].ur = 0;
-    IndexBuffer[2].dl = 5;
-    IndexBuffer[2].dr = 4;
+    IndexBuffer[cube*6 + 2].ul = cube*8 + 1;
+    IndexBuffer[cube*6 + 2].ur = cube*8 + 0;
+    IndexBuffer[cube*6 + 2].dl = cube*8 + 5;
+    IndexBuffer[cube*6 + 2].dr = cube*8 + 4;
     
-    IndexBuffer[3].ul = 2;
-    IndexBuffer[3].ur = 3;
-    IndexBuffer[3].dl = 6;
-    IndexBuffer[3].dr = 7;
+    IndexBuffer[cube*6 + 3].ul = cube*8 + 2;
+    IndexBuffer[cube*6 + 3].ur = cube*8 + 3;
+    IndexBuffer[cube*6 + 3].dl = cube*8 + 6;
+    IndexBuffer[cube*6 + 3].dr = cube*8 + 7;
     
-    IndexBuffer[4].ul = 0;
-    IndexBuffer[4].ur = 2;
-    IndexBuffer[4].dl = 4;
-    IndexBuffer[4].dr = 6;
+    IndexBuffer[cube*6 + 4].ul = cube*8 + 0;
+    IndexBuffer[cube*6 + 4].ur = cube*8 + 2;
+    IndexBuffer[cube*6 + 4].dl = cube*8 + 4;
+    IndexBuffer[cube*6 + 4].dr = cube*8 + 6;
     
-    IndexBuffer[5].ul = 3;
-    IndexBuffer[5].ur = 1;
-    IndexBuffer[5].dl = 7;
-    IndexBuffer[5].dr = 5;
+    IndexBuffer[cube*6 + 5].ul = cube*8 + 3;
+    IndexBuffer[cube*6 + 5].ur = cube*8 + 1;
+    IndexBuffer[cube*6 + 5].dl = cube*8 + 7;
+    IndexBuffer[cube*6 + 5].dr = cube*8 + 5;
     // top:
     // 0 1
     // 2 3
     // bottom:
     // 4 5
     // 6 7
-    Cubes[0].v0[0] = -half_side_len;
-    Cubes[0].v0[1] =  half_side_len;
-    Cubes[0].v0[2] =  half_side_len;
+    Cubes[cube].v0[0] = -half_side_len;
+    Cubes[cube].v0[1] =  half_side_len;
+    Cubes[cube].v0[2] =  half_side_len;
 
-    Cubes[0].v1[0] =  half_side_len;
-    Cubes[0].v1[1] =  half_side_len;
-    Cubes[0].v1[2] =  half_side_len;
+    Cubes[cube].v1[0] =  half_side_len;
+    Cubes[cube].v1[1] =  half_side_len;
+    Cubes[cube].v1[2] =  half_side_len;
     
-    Cubes[0].v2[0] = -half_side_len;
-    Cubes[0].v2[1] =  half_side_len;
-    Cubes[0].v2[2] = -half_side_len;
+    Cubes[cube].v2[0] = -half_side_len;
+    Cubes[cube].v2[1] =  half_side_len;
+    Cubes[cube].v2[2] = -half_side_len;
     
-    Cubes[0].v3[0] =  half_side_len;
-    Cubes[0].v3[1] =  half_side_len;
-    Cubes[0].v3[2] = -half_side_len;
+    Cubes[cube].v3[0] =  half_side_len;
+    Cubes[cube].v3[1] =  half_side_len;
+    Cubes[cube].v3[2] = -half_side_len;
     
-    Cubes[0].v4[0] = -half_side_len;
-    Cubes[0].v4[1] = -half_side_len;
-    Cubes[0].v4[2] =  half_side_len;
+    Cubes[cube].v4[0] = -half_side_len;
+    Cubes[cube].v4[1] = -half_side_len;
+    Cubes[cube].v4[2] =  half_side_len;
     
-    Cubes[0].v5[0] =  half_side_len;
-    Cubes[0].v5[1] = -half_side_len;
-    Cubes[0].v5[2] =  half_side_len;
+    Cubes[cube].v5[0] =  half_side_len;
+    Cubes[cube].v5[1] = -half_side_len;
+    Cubes[cube].v5[2] =  half_side_len;
     
-    Cubes[0].v6[0] = -half_side_len;
-    Cubes[0].v6[1] = -half_side_len;
-    Cubes[0].v6[2] = -half_side_len;
+    Cubes[cube].v6[0] = -half_side_len;
+    Cubes[cube].v6[1] = -half_side_len;
+    Cubes[cube].v6[2] = -half_side_len;
     
-    Cubes[0].v7[0] =  half_side_len;
-    Cubes[0].v7[1] = -half_side_len;
-    Cubes[0].v7[2] = -half_side_len;
+    Cubes[cube].v7[0] =  half_side_len;
+    Cubes[cube].v7[1] = -half_side_len;
+    Cubes[cube].v7[2] = -half_side_len;
 }
 
-inline void render_buffer_cube(int[12] transform) {
+inline void render_buffer_cube(int cube, int[12] transform) {
     int[3] buf;
     
-    mat3x4_transform(buf, transform, Cubes[0].v0);
-    render_buffer_vert(0, buf);
-    mat3x4_transform(buf, transform, Cubes[0].v1);
-    render_buffer_vert(1, buf);
-    mat3x4_transform(buf, transform, Cubes[0].v2);
-    render_buffer_vert(2, buf);
-    mat3x4_transform(buf, transform, Cubes[0].v3);
-    render_buffer_vert(3, buf);
-    mat3x4_transform(buf, transform, Cubes[0].v4);
-    render_buffer_vert(4, buf);
-    mat3x4_transform(buf, transform, Cubes[0].v5);
-    render_buffer_vert(5, buf);
-    mat3x4_transform(buf, transform, Cubes[0].v6);
-    render_buffer_vert(6, buf);
-    mat3x4_transform(buf, transform, Cubes[0].v7);
-    render_buffer_vert(7, buf);
+    mat3x4_transform(buf, transform, Cubes[cube].v0);
+    render_buffer_vert(cube*8 + 0, buf);
+    mat3x4_transform(buf, transform, Cubes[cube].v1);
+    render_buffer_vert(cube*8 + 1, buf);
+    mat3x4_transform(buf, transform, Cubes[cube].v2);
+    render_buffer_vert(cube*8 + 2, buf);
+    mat3x4_transform(buf, transform, Cubes[cube].v3);
+    render_buffer_vert(cube*8 + 3, buf);
+    mat3x4_transform(buf, transform, Cubes[cube].v4);
+    render_buffer_vert(cube*8 + 4, buf);
+    mat3x4_transform(buf, transform, Cubes[cube].v5);
+    render_buffer_vert(cube*8 + 5, buf);
+    mat3x4_transform(buf, transform, Cubes[cube].v6);
+    render_buffer_vert(cube*8 + 6, buf);
+    mat3x4_transform(buf, transform, Cubes[cube].v7);
+    render_buffer_vert(cube*8 + 7, buf);
 }
 
 inline int render_intersect_quad(int[3] r, int quad, int[3] origin, int[3] dir) {
