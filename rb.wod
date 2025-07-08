@@ -134,7 +134,7 @@ inline void rb_integrate(int rb, int duration) {
     if (RigidBodies[rb].can_sleep) {
         int current_motion = vec3_dot_safe(vel, vel) + vec3_dot_safe(rot, rot);
 
-        const int BIAS = 998;
+        const int BIAS = 970;
         int motion = (BIAS*RigidBodies[rb].motion + (1000-BIAS)*current_motion) / 1000;
 
         if (motion < RB_SLEEP_EPS) rb_sleep(rb);
