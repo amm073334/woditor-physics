@@ -29,7 +29,17 @@ inline void get_axis(int rb, int[3] r, int axis) {
     else get_axis_3(rb, r);
 }
 
-inline int _collide_transform_to_axis(int rb, int[3] axis) {
+inline int intersect_box_and_halfspace(int rb, int[3] plane_normal, int plane_offset) {
+    int projected_radius = transform_to_axis(rb, plane_normal);
+
+    int[3] tmp_axis;
+    get_axis_3(rb, tmp_axis);
+    int box_distance = vec3_dot(plane_normal, tmp_axis) - projected_radius;
+
+    return box_distance <= plane_offset;
+}
+
+inline int transform_to_axis(int rb, int[3] axis) {
     int hs = RigidBodies[rb].half_size;
     int[3] tmp_axis;
 
@@ -70,7 +80,10 @@ inline void _collide_box_vertex_and_halfspace(int rb, int[3] vertex, int[3] plan
 inline void collide_box_and_halfspace(int rb, int[3] plane_normal, int plane_offset) {
     int test = ContactGlobals[0].n_contacts;
 
-    // TODO: if not intersecting, return early
+    if (!intersect_box_and_halfspace(rb, plane_normal, plane_offset)) {
+        return;
+    }
+
     int[3] vertex;
     int half_size = RigidBodies[rb].half_size;
 
@@ -297,8 +310,8 @@ inline int _collide_box_box_find_edge_pt(
 }
 
 inline int _collide_box_box_penetration_on_axis(int rb_0, int rb_1, int[3] axis, int[3] to_center) {
-    int one_project = _collide_transform_to_axis(rb_0, axis);
-    int two_project = _collide_transform_to_axis(rb_1, axis);
+    int one_project = transform_to_axis(rb_0, axis);
+    int two_project = transform_to_axis(rb_1, axis);
 
     int distance = abs(vec3_dot(to_center, axis));
 

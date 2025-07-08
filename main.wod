@@ -40,7 +40,7 @@ void main() {
 
     render_init_cube(0, 1000);
     rb_init_cube(0, 1000, 2000);
-    RigidBodies[0].position[0] = 10500;
+    RigidBodies[0].position[0] = 10800;
     RigidBodies[0].position[1] = 7000;
     RigidBodies[0].position[2] = 0;
     RigidBodies[0].acceleration[1] = -9810;
