@@ -4,6 +4,7 @@ import "render";
 import "rb";
 import "contact";
 import "collide";
+import "spring";
 
 inline void print_3x4(int[12] m) {
     print(f"{m[0]} {m[1]} {m[2]} {m[3]}");
@@ -30,7 +31,7 @@ inline void print_vec3(int[3] v) {
 }
 
 void main() {
-    int n_rb = 2;
+    int n_rb = 4;
 
     // hide cursor
     cmd [121](9000074,0,0,0)();
@@ -44,17 +45,42 @@ void main() {
     RigidBodies[0].position[1] = 7000;
     RigidBodies[0].position[2] = 0;
     RigidBodies[0].acceleration[1] = -9810;
+    rb_calculate_derived(0);
 
     render_init_cube(1, 500);
     rb_init_cube(1, 1000, 1000);
     RigidBodies[1].position[0] = 10000;
     RigidBodies[1].position[1] = 15000;
-    RigidBodies[1].position[2] = 0;
+    RigidBodies[1].position[2] = -550;
     RigidBodies[1].acceleration[1] = -9810;
-
-    rb_calculate_derived(0);
     rb_calculate_derived(1);
 
+    render_init_cube(3, 500);
+    rb_init_cube(3, 1000, 1000);
+    RigidBodies[3].position[0] = 9400;
+    RigidBodies[3].position[1] = 15000;
+    RigidBodies[3].position[2] = 550;
+    RigidBodies[3].acceleration[1] = -9810;
+    rb_calculate_derived(3);
+
+    // springy block
+    Springs[0].connection_point[1] = 1000;
+    Springs[0].other_connection_point[0] = -10000;
+    Springs[0].other_connection_point[1] = 10000;
+    Springs[0].other_connection_point[2] = 0;
+    Springs[0].rb_other = -1;
+    Springs[0].spring_constant = 10000;
+    Springs[0].rest_length = 2000;
+
+    render_init_cube(2, 1000);
+    rb_init_cube(2, 1000, 2000);
+    RigidBodies[2].position[0] = -10000;
+    RigidBodies[2].position[1] = 8000;
+    RigidBodies[2].position[2] = 0;
+    RigidBodies[2].acceleration[1] = -15100;
+    rb_calculate_derived(2);
+
+    // globals
     ContactGlobals[0].restitution = 200;
     ContactGlobals[0].friction = 400;
 
@@ -162,9 +188,13 @@ void main() {
             cmd [150](48,FLOOR_PICT,0,SCREEN_WIDTH,SCREEN_HEIGHT * 100,1,255,0,far_away_y,100,0,0,33554432,0,0,40,40,40)("<SQUARE>");
         }
 
-        render_buffer_cube(0, RigidBodies[0].transform);
-        render_buffer_cube(1, RigidBodies[1].transform);
-        
+        buffer_cubes(n_rb);
+        {
+            int[3] spring_conn_world;
+            mat3x4_transform(spring_conn_world, RigidBodies[2].transform, Springs[0].connection_point);
+            render_buffer_line(Springs[0].other_connection_point, spring_conn_world);
+        }
+
         // physics
         int test;
         cmd [123](test,135425,157)();
@@ -172,6 +202,7 @@ void main() {
 
             start_frame(n_rb);
 
+            spring_update_force(0, 2, 16);
             {
                 int min_t = 0;
                 int[3] min_p;
@@ -195,9 +226,8 @@ void main() {
                         int[3] force;
                         vec3_clear(force);
                         vec3_add_scaled(force, forward, 10000);
-                        int apply_rb;
-                        if (quad < 6) apply_rb = 0;
-                        else apply_rb = 1;
+
+                        int apply_rb = quad / 6;
                         rb_add_force_at_pt(apply_rb, force, min_p);
                     }
                 }
@@ -216,6 +246,12 @@ inline void start_frame(int n_rb) {
     for (int i = 0; i < n_rb; i += 1) {
         rb_clear_accum(i);
         rb_calculate_derived(i);
+    }
+}
+
+inline void buffer_cubes(int n_rb) {
+    for (int i = 0; i < n_rb; i += 1) {
+        render_buffer_cube(i, RigidBodies[i].transform);
     }
 }
 

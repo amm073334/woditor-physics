@@ -12,6 +12,7 @@ const int MAX_QUADS = 100;
 
 cdb Properties {
     int indexbuf_len;
+    int vertexbuf_len;
     int[12] look_at;
     int[3] cam_pos;
 }
@@ -25,6 +26,7 @@ cdb VertexBuffer {
 
 cdb IndexBuffer {
     int z;
+    int is_line;
     int ul;
     int ur;
     int dl;
@@ -63,20 +65,25 @@ inline void render_draw() {
 
     int i = 0;
     loop (Properties[0].indexbuf_len) {
-        // int avg_z = VertexBuffer[IndexBuffer[i].ul].camera_space[2]
-        //             + VertexBuffer[IndexBuffer[i].ur].camera_space[2]
-        //             + VertexBuffer[IndexBuffer[i].dl].camera_space[2]
-        //             + VertexBuffer[IndexBuffer[i].dr].camera_space[2];
+        if (IndexBuffer[i].is_line) {
+            IndexBuffer[i].z = VertexBuffer[IndexBuffer[i].ur].camera_space[2];
+            i += 1;
+            continue;
+        }
+        int avg_z = VertexBuffer[IndexBuffer[i].ul].camera_space[2]
+                    + VertexBuffer[IndexBuffer[i].ur].camera_space[2]
+                    + VertexBuffer[IndexBuffer[i].dl].camera_space[2]
+                    + VertexBuffer[IndexBuffer[i].dr].camera_space[2];
 
-        // IndexBuffer[i].z = avg_z / 4;
-        int max_z = VertexBuffer[IndexBuffer[i].ul].camera_space[2];
-        int tmp_z = VertexBuffer[IndexBuffer[i].ur].camera_space[2];
-        if (tmp_z > max_z) max_z = tmp_z;
-        tmp_z = VertexBuffer[IndexBuffer[i].dl].camera_space[2];
-        if (tmp_z > max_z) max_z = tmp_z;
-        tmp_z = VertexBuffer[IndexBuffer[i].dr].camera_space[2];
-        if (tmp_z > max_z) max_z = tmp_z;
-        IndexBuffer[i].z = max_z;
+        IndexBuffer[i].z = avg_z / 4;
+        // int max_z = VertexBuffer[IndexBuffer[i].ul].camera_space[2];
+        // int tmp_z = VertexBuffer[IndexBuffer[i].ur].camera_space[2];
+        // if (tmp_z > max_z) max_z = tmp_z;
+        // tmp_z = VertexBuffer[IndexBuffer[i].dl].camera_space[2];
+        // if (tmp_z > max_z) max_z = tmp_z;
+        // tmp_z = VertexBuffer[IndexBuffer[i].dr].camera_space[2];
+        // if (tmp_z > max_z) max_z = tmp_z;
+        // IndexBuffer[i].z = max_z;
 
         i += 1;
     }
@@ -85,6 +92,22 @@ inline void render_draw() {
 
     i = 0;
     loop (Properties[0].indexbuf_len) {
+        if (IndexBuffer[i].is_line) {
+            int ul = IndexBuffer[i].ul;
+            int ur = IndexBuffer[i].ur;
+            if (VertexBuffer[ul].camera_space[2] <= 0 ||
+                VertexBuffer[ur].camera_space[2] <= 0)
+            {
+                i += 1;
+                continue;
+            }
+            int len_x = VertexBuffer[ur].screen_x - VertexBuffer[ul].screen_x;
+            int len_y = VertexBuffer[ur].screen_y - VertexBuffer[ul].screen_y;
+            cmd [150](48,i,0,len_x,len_y,1,255,VertexBuffer[ul].screen_x,VertexBuffer[ul].screen_y,100,0,0,33554432,0,0,200,30,30)("<LINE-11>");
+            i += 1;
+            continue;
+        }
+
         int ul = IndexBuffer[i].ul;
         int ur = IndexBuffer[i].ur;
         int dl = IndexBuffer[i].dl;
@@ -131,7 +154,11 @@ inline void render_draw() {
         i += 1;
     }
 
+    Properties[0].vertexbuf_len = 0;
     Properties[0].indexbuf_len = 0;
+
+    // reset all data
+    cmd [250](2,-2,0,0,0)("","","","");
 }
 
 inline void render_init_cube(int cube, int half_side_len) {
@@ -175,55 +202,75 @@ inline void render_init_cube(int cube, int half_side_len) {
 }
 
 inline void render_buffer_cube(int cube, int[12] transform) {
+    int vert = Properties[0].vertexbuf_len;
+    int quad = Properties[0].indexbuf_len;
+
     int[3] buf;
     
     mat3x4_transform(buf, transform, Cubes[cube].v0);
-    render_buffer_vert(cube*8 + 0, buf);
+    render_buffer_vert(vert + 0, buf);
     mat3x4_transform(buf, transform, Cubes[cube].v1);
-    render_buffer_vert(cube*8 + 1, buf);
+    render_buffer_vert(vert + 1, buf);
     mat3x4_transform(buf, transform, Cubes[cube].v2);
-    render_buffer_vert(cube*8 + 2, buf);
+    render_buffer_vert(vert + 2, buf);
     mat3x4_transform(buf, transform, Cubes[cube].v3);
-    render_buffer_vert(cube*8 + 3, buf);
+    render_buffer_vert(vert + 3, buf);
     mat3x4_transform(buf, transform, Cubes[cube].v4);
-    render_buffer_vert(cube*8 + 4, buf);
+    render_buffer_vert(vert + 4, buf);
     mat3x4_transform(buf, transform, Cubes[cube].v5);
-    render_buffer_vert(cube*8 + 5, buf);
+    render_buffer_vert(vert + 5, buf);
     mat3x4_transform(buf, transform, Cubes[cube].v6);
-    render_buffer_vert(cube*8 + 6, buf);
+    render_buffer_vert(vert + 6, buf);
     mat3x4_transform(buf, transform, Cubes[cube].v7);
-    render_buffer_vert(cube*8 + 7, buf);
+    render_buffer_vert(vert + 7, buf);
 
+    IndexBuffer[quad + 0].ul = vert + 0;
+    IndexBuffer[quad + 0].ur = vert + 1;
+    IndexBuffer[quad + 0].dl = vert + 2;
+    IndexBuffer[quad + 0].dr = vert + 3;
+    
+    IndexBuffer[quad + 1].ul = vert + 6;
+    IndexBuffer[quad + 1].ur = vert + 7;
+    IndexBuffer[quad + 1].dl = vert + 4;
+    IndexBuffer[quad + 1].dr = vert + 5;
+    
+    IndexBuffer[quad + 2].ul = vert + 1;
+    IndexBuffer[quad + 2].ur = vert + 0;
+    IndexBuffer[quad + 2].dl = vert + 5;
+    IndexBuffer[quad + 2].dr = vert + 4;
+    
+    IndexBuffer[quad + 3].ul = vert + 2;
+    IndexBuffer[quad + 3].ur = vert + 3;
+    IndexBuffer[quad + 3].dl = vert + 6;
+    IndexBuffer[quad + 3].dr = vert + 7;
+    
+    IndexBuffer[quad + 4].ul = vert + 0;
+    IndexBuffer[quad + 4].ur = vert + 2;
+    IndexBuffer[quad + 4].dl = vert + 4;
+    IndexBuffer[quad + 4].dr = vert + 6;
+    
+    IndexBuffer[quad + 5].ul = vert + 3;
+    IndexBuffer[quad + 5].ur = vert + 1;
+    IndexBuffer[quad + 5].dl = vert + 7;
+    IndexBuffer[quad + 5].dr = vert + 5;
+
+    Properties[0].vertexbuf_len += 8;
     Properties[0].indexbuf_len += 6;
-    IndexBuffer[cube*6 + 0].ul = cube*8 + 0;
-    IndexBuffer[cube*6 + 0].ur = cube*8 + 1;
-    IndexBuffer[cube*6 + 0].dl = cube*8 + 2;
-    IndexBuffer[cube*6 + 0].dr = cube*8 + 3;
-    
-    IndexBuffer[cube*6 + 1].ul = cube*8 + 6;
-    IndexBuffer[cube*6 + 1].ur = cube*8 + 7;
-    IndexBuffer[cube*6 + 1].dl = cube*8 + 4;
-    IndexBuffer[cube*6 + 1].dr = cube*8 + 5;
-    
-    IndexBuffer[cube*6 + 2].ul = cube*8 + 1;
-    IndexBuffer[cube*6 + 2].ur = cube*8 + 0;
-    IndexBuffer[cube*6 + 2].dl = cube*8 + 5;
-    IndexBuffer[cube*6 + 2].dr = cube*8 + 4;
-    
-    IndexBuffer[cube*6 + 3].ul = cube*8 + 2;
-    IndexBuffer[cube*6 + 3].ur = cube*8 + 3;
-    IndexBuffer[cube*6 + 3].dl = cube*8 + 6;
-    IndexBuffer[cube*6 + 3].dr = cube*8 + 7;
-    
-    IndexBuffer[cube*6 + 4].ul = cube*8 + 0;
-    IndexBuffer[cube*6 + 4].ur = cube*8 + 2;
-    IndexBuffer[cube*6 + 4].dl = cube*8 + 4;
-    IndexBuffer[cube*6 + 4].dr = cube*8 + 6;
-    
-    IndexBuffer[cube*6 + 5].ul = cube*8 + 3;
-    IndexBuffer[cube*6 + 5].ur = cube*8 + 1;
-    IndexBuffer[cube*6 + 5].dl = cube*8 + 7;
-    IndexBuffer[cube*6 + 5].dr = cube*8 + 5;
+}
+
+inline void render_buffer_line(int[3] p, int[3] q) {
+    int vert = Properties[0].vertexbuf_len;
+    int quad = Properties[0].indexbuf_len;
+
+    render_buffer_vert(vert, p);
+    render_buffer_vert(vert+1, q);
+
+    IndexBuffer[quad].ul = vert;
+    IndexBuffer[quad].ur = vert+1;
+    IndexBuffer[quad].is_line = 1;
+
+    Properties[0].vertexbuf_len += 2;
+    Properties[0].indexbuf_len += 1;
 }
 
 inline int render_is_facing(int quad) {
@@ -255,6 +302,8 @@ inline int render_is_facing(int quad) {
 
 // based on https://stackoverflow.com/questions/21114796/3d-ray-quad-intersection-test-in-java
 inline int render_intersect_quad(int[3] r, int quad, int[3] origin, int[3] dir) {
+    if (IndexBuffer[quad].is_line) return 0;
+
     int[3] n;
     int[3] a;
     int[3] b;

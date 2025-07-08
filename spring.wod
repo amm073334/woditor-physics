@@ -1,0 +1,33 @@
+cdb Springs {
+    int[3] connection_point;
+    int[3] other_connection_point;
+    int rb_other;
+    int spring_constant;
+    int rest_length;
+}
+
+inline void spring_update_force(int spring, int rb, int duration) {
+    int[3] this_world;
+    mat3x4_transform(this_world, RigidBodies[rb].transform, Springs[spring].connection_point);
+    
+    int[3] other_world;
+
+    int rb_other = Springs[spring].rb_other;
+    if (rb_other >= 0) {
+        mat3x4_transform(other_world, RigidBodies[rb_other].transform, Springs[spring].other_connection_point);
+    } else {
+        vec3_copy(other_world, Springs[spring].other_connection_point);
+    }
+
+    int[3] force;
+    vec3_sub(force, this_world, other_world);
+
+    int magnitude = vec3_mag(force);
+    magnitude = abs(magnitude - Springs[spring].rest_length);
+    magnitude *= Springs[spring].spring_constant;
+    magnitude /= 1000;
+
+    vec3_normalize(force);
+    vec3_scale_update(force, -magnitude);
+    rb_add_force_at_pt(rb, force, this_world);
+}
