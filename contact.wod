@@ -512,7 +512,7 @@ inline void ct_adjust_vel(int duration) {
                     ct_calculate_desired_delta_velocity(i, duration);
                 } else if (i_rb_1 == index_rb_1) {
                     vec3_cross(delta_vel, rot_change_1, Contacts[i].rel_contact_pos_1);
-                    vec3_sub_update(delta_vel, vel_change_1);
+                    vec3_add_update(delta_vel, vel_change_1);
                     
                     {
                         int[3] tmp;

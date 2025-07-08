@@ -38,17 +38,17 @@ void main() {
     const int SENS = 1500;
     const int CURSOR_PICT = 999999;
 
-    render_init_cube(0, 500);
-    rb_init_cube(0, 1000, 1000);
-    RigidBodies[0].position[0] = 8000;
-    RigidBodies[0].position[1] = 1500;
+    render_init_cube(0, 1000);
+    rb_init_cube(0, 1000, 2000);
+    RigidBodies[0].position[0] = 10500;
+    RigidBodies[0].position[1] = 7000;
     RigidBodies[0].position[2] = 0;
     RigidBodies[0].acceleration[1] = -9810;
 
-    render_init_cube(1, 1000);
-    rb_init_cube(1, 1000, 2000);
+    render_init_cube(1, 500);
+    rb_init_cube(1, 1000, 1000);
     RigidBodies[1].position[0] = 10000;
-    RigidBodies[1].position[1] = 1000;
+    RigidBodies[1].position[1] = 15000;
     RigidBodies[1].position[2] = 0;
     RigidBodies[1].acceleration[1] = -9810;
 
@@ -162,8 +162,6 @@ void main() {
             cmd [150](48,FLOOR_PICT,0,SCREEN_WIDTH,SCREEN_HEIGHT * 100,1,255,0,far_away_y,100,0,0,33554432,0,0,40,40,40)("<SQUARE>");
         }
 
-        
-
         render_buffer_cube(0, RigidBodies[0].transform);
         render_buffer_cube(1, RigidBodies[1].transform);
         
@@ -206,23 +204,6 @@ void main() {
             }
 
             run_physics(n_rb);
-
-            // delete all contacts
-            cmd [252](5,0,0,4096,1000)("","","","");
-            ContactGlobals[0].n_contacts = 0;
-            
-            {
-                int[3] plane_normal;
-                plane_normal[0] = 0;
-                plane_normal[1] = 1000;
-                plane_normal[2] = 0;
-                collide_box_and_halfspace(0, plane_normal, 0);
-                collide_box_and_halfspace(1, plane_normal, 0);
-            }
-
-            collide_box_and_box(0, 1);
-            ct_resolve(16);
-
         }
         
         render_draw();
@@ -241,5 +222,21 @@ inline void start_frame(int n_rb) {
 inline void run_physics(int n_rb) {
     for (int i = 0; i < n_rb; i += 1) {
         rb_integrate(i, 16);
+    }
+    ContactGlobals[0].n_contacts = 0;
+    generate_contacts(n_rb);
+    ct_resolve(16);
+}
+
+inline void generate_contacts(int n_rb) {
+    int[3] plane_normal;
+    plane_normal[0] = 0;
+    plane_normal[1] = 1000;
+    plane_normal[2] = 0;
+    for (int i = 0; i < n_rb; i += 1) {
+        collide_box_and_halfspace(i, plane_normal, 0);
+        for (int j = i + 1; j < n_rb; j += 1) {
+            collide_box_and_box(i, j);
+        }
     }
 }

@@ -63,12 +63,21 @@ inline void render_draw() {
 
     int i = 0;
     loop (Properties[0].indexbuf_len) {
-        int avg_z = VertexBuffer[IndexBuffer[i].ul].camera_space[2]
-                    + VertexBuffer[IndexBuffer[i].ur].camera_space[2]
-                    + VertexBuffer[IndexBuffer[i].dl].camera_space[2]
-                    + VertexBuffer[IndexBuffer[i].dr].camera_space[2];
+        // int avg_z = VertexBuffer[IndexBuffer[i].ul].camera_space[2]
+        //             + VertexBuffer[IndexBuffer[i].ur].camera_space[2]
+        //             + VertexBuffer[IndexBuffer[i].dl].camera_space[2]
+        //             + VertexBuffer[IndexBuffer[i].dr].camera_space[2];
 
-        IndexBuffer[i].z = avg_z / 4;
+        // IndexBuffer[i].z = avg_z / 4;
+        int max_z = VertexBuffer[IndexBuffer[i].ul].camera_space[2];
+        int tmp_z = VertexBuffer[IndexBuffer[i].ur].camera_space[2];
+        if (tmp_z > max_z) max_z = tmp_z;
+        tmp_z = VertexBuffer[IndexBuffer[i].dl].camera_space[2];
+        if (tmp_z > max_z) max_z = tmp_z;
+        tmp_z = VertexBuffer[IndexBuffer[i].dr].camera_space[2];
+        if (tmp_z > max_z) max_z = tmp_z;
+        IndexBuffer[i].z = max_z;
+
         i += 1;
     }
 
@@ -225,6 +234,11 @@ inline int render_is_facing(int quad) {
     vec3_sub(a, VertexBuffer[IndexBuffer[quad].ur].world_space, ul_pos);
     vec3_sub(b, VertexBuffer[IndexBuffer[quad].dl].world_space, ul_pos);
     
+    // in a real 3d application this normalization would not be necessary,
+    // but not doing so here risks integer overflow
+    vec3_normalize(a);
+    vec3_normalize(b);
+
     int[3] n;
     vec3_cross(n, a, b);
 
@@ -233,15 +247,13 @@ inline int render_is_facing(int quad) {
     cam_pos[1] = Properties[0].look_at[7];
     cam_pos[2] = Properties[0].look_at[11];
 
-    int[3] forward;
-    vec3_sub(forward, ul_pos, Properties[0].cam_pos);
-    // forward[0] = Properties[0].look_at[8];
-    // forward[1] = Properties[0].look_at[9];
-    // forward[2] = Properties[0].look_at[10];
-    if (vec3_dot(n, forward) > 0) return 0;
+    int[3] line_of_sight;
+    vec3_sub(line_of_sight, ul_pos, Properties[0].cam_pos);
+    if (vec3_dot(n, line_of_sight) > 0) return 0;
     return 1;
 }
 
+// based on https://stackoverflow.com/questions/21114796/3d-ray-quad-intersection-test-in-java
 inline int render_intersect_quad(int[3] r, int quad, int[3] origin, int[3] dir) {
     int[3] n;
     int[3] a;
@@ -252,9 +264,19 @@ inline int render_intersect_quad(int[3] r, int quad, int[3] origin, int[3] dir) 
     vec3_sub(a, VertexBuffer[IndexBuffer[quad].ur].world_space, ul_pos);
     vec3_sub(b, VertexBuffer[IndexBuffer[quad].dl].world_space, ul_pos);
     
-    vec3_cross(n, a, b);
-    vec3_normalize(n);
+    {
+        // temporarily normalize a and b to avoid integer overflow when computing normal
+        int[3] norm_a;
+        vec3_copy(norm_a, a);
+        vec3_normalize(norm_a);
+        
+        int[3] norm_b;
+        vec3_copy(norm_b, b);
+        vec3_normalize(norm_b);
 
+        vec3_cross(n, norm_a, norm_b);
+    }
+    
     int denom = -vec3_dot(n, dir);
     if (denom == 0) {
         return 0;
@@ -289,9 +311,9 @@ inline int test_draw_line(int pic, int[3] a, int[3] b) {
     int[3] end;
     vec3_copy(start, a);
     vec3_copy(end, b);
-    render_buffer_vert(8, start);
-    render_buffer_vert(9, end);
-    int len_x = VertexBuffer[9].screen_x - VertexBuffer[8].screen_x;
-    int len_y = VertexBuffer[9].screen_y - VertexBuffer[8].screen_y;
-    cmd [150](48,pic,0,len_x,len_y,1,255,VertexBuffer[8].screen_x,VertexBuffer[8].screen_y,100,0,0,33554432,0,0,200,30,30)("<LINE-11>");
+    render_buffer_vert(100, start);
+    render_buffer_vert(101, end);
+    int len_x = VertexBuffer[101].screen_x - VertexBuffer[100].screen_x;
+    int len_y = VertexBuffer[101].screen_y - VertexBuffer[100].screen_y;
+    cmd [150](48,pic,0,len_x,len_y,1,255,VertexBuffer[100].screen_x,VertexBuffer[100].screen_y,100,0,0,33554432,0,0,200,30,30)("<LINE-11>");
 }
