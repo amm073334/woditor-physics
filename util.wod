@@ -4,6 +4,12 @@ inline int key(int k) {
     return out;
 }
 
+inline int rand(int a, int b) {
+    int out;
+    cmd [121](out,a,b,24576)();
+    return out;
+}
+
 inline void print(str s) {
     cmd [106]()(s);
 }

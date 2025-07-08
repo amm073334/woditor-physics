@@ -1,0 +1,10 @@
+inline void explode(int[3] center, int rb) {
+    int[3] explode_vec;
+    vec3_sub(explode_vec, RigidBodies[rb].position, center);
+    int dist = vec3_mag(explode_vec);
+    vec3_normalize(explode_vec);
+
+    vec3_scale_update(explode_vec, 1000000 / dist);
+    vec3_scale_update(explode_vec, 10000000);
+    rb_add_force(rb, explode_vec);
+}

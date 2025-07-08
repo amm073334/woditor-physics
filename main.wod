@@ -5,6 +5,7 @@ import "rb";
 import "contact";
 import "collide";
 import "spring";
+import "explode";
 
 inline void print_3x4(int[12] m) {
     print(f"{m[0]} {m[1]} {m[2]} {m[3]}");
@@ -31,7 +32,7 @@ inline void print_vec3(int[3] v) {
 }
 
 void main() {
-    int n_rb = 4;
+    int n_rb = 10;
 
     // hide cursor
     cmd [121](9000074,0,0,0)();
@@ -65,20 +66,32 @@ void main() {
 
     // springy block
     Springs[0].connection_point[1] = 1000;
-    Springs[0].other_connection_point[0] = -10000;
+    Springs[0].other_connection_point[0] = 0;
     Springs[0].other_connection_point[1] = 10000;
-    Springs[0].other_connection_point[2] = 0;
+    Springs[0].other_connection_point[2] = -10000;
     Springs[0].rb_other = -1;
     Springs[0].spring_constant = 10000;
     Springs[0].rest_length = 2000;
 
     render_init_cube(2, 1000);
     rb_init_cube(2, 1000, 2000);
-    RigidBodies[2].position[0] = -10000;
+    RigidBodies[2].position[0] = 0;
     RigidBodies[2].position[1] = 8000;
-    RigidBodies[2].position[2] = 0;
+    RigidBodies[2].position[2] = -10000;
     RigidBodies[2].acceleration[1] = -15100;
     rb_calculate_derived(2);
+
+    for (int i = 4; i < n_rb; i += 1) {
+        int half_size = rand(500, 1000);
+        int mass = rand(500, 1000);
+        render_init_cube(i, half_size);
+        rb_init_cube(i, mass, half_size * 2);
+        RigidBodies[i].position[0] = -10000;
+        RigidBodies[i].position[1] = 5000;
+        RigidBodies[i].position[2] = 0;
+        RigidBodies[i].acceleration[1] = -9810;
+        rb_calculate_derived(i);
+    }
 
     // globals
     ContactGlobals[0].restitution = 200;
@@ -201,6 +214,22 @@ void main() {
         if (1 || test || key(152)) {
 
             start_frame(n_rb);
+
+            
+            {
+                int enter_pressed;
+                cmd [123](enter_pressed,135425,128)();
+                if (enter_pressed) {
+                    int[3] explode_center;
+                    explode_center[0] = -10000;
+                    explode_center[1] = -500;
+                    explode_center[2] = 0;
+
+                    for (int i = 4; i < n_rb; i += 1) {
+                        explode(explode_center, i);
+                    }
+                }
+            }
 
             spring_update_force(0, 2, 16);
             {
