@@ -25,6 +25,21 @@ const int CT_MAX_ITERS = 100;
 const int CT_POS_EPS = 10;
 const int CT_VEL_EPS = 10;
 
+inline void ct_match_awake_state(int ct) {
+    int rb_1 = Contacts[ct].rb_1;
+    if (rb_1 < 0) return;
+
+    int rb_0 = Contacts[ct].rb_0;
+
+    int rb_0_awake = RigidBodies[rb_0].is_awake;
+    int rb_1_awake = RigidBodies[rb_1].is_awake;
+
+    if (rb_0_awake ^ rb_1_awake) {
+        if (rb_0_awake) rb_wake(rb_1);
+        else rb_wake(rb_0);
+    }
+}
+
 inline void ct_calculate_internals(int ct, int duration) {
     ct_calculate_contact_basis(ct);
 
@@ -418,6 +433,8 @@ inline void ct_adjust_pos(int duration) {
         }
         if (index == n_contacts) break;
 
+        ct_match_awake_state(index);
+
         ct_apply_position_change(index, lin_change_0, lin_change_1, ang_change_0, ang_change_1, max);
 
         for (int i = 0; i < n_contacts; i += 1) {
@@ -470,6 +487,8 @@ inline void ct_adjust_vel(int duration) {
         }
         if (index == n_contacts) break;
         
+        ct_match_awake_state(index);
+
         ct_apply_velocity_change(index, vel_change_0, vel_change_1, rot_change_0, rot_change_1);
 
         for (int i = 0; i < n_contacts; i += 1) {

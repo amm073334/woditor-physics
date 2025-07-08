@@ -24,7 +24,14 @@ cdb RigidBodies {
     // always perfectly aligned with the rigid body, so there is no
     // need to have a separate collision primitive structure
     int half_size;
+
+    // sleepy time
+    int motion;
+    int is_awake;
+    int can_sleep;
 }
+
+const int RB_SLEEP_EPS = 300;
 
 inline void rb_init_cube(int rb, int mass, int side_len) {
     RigidBodies[rb].half_size = side_len / 2;
@@ -42,6 +49,8 @@ inline void rb_init_cube(int rb, int mass, int side_len) {
     it[7] = 0;
     it[8] = moment;
     rb_set_inertia_tensor(rb, it);
+    rb_wake(rb);
+    RigidBodies[rb].can_sleep = 1;
 }
 
 inline void rb_set_inertia_tensor(int rb, int[9] inertia_tensor) {
@@ -49,15 +58,13 @@ inline void rb_set_inertia_tensor(int rb, int[9] inertia_tensor) {
 }
 
 inline void rb_add_force(int rb, int[3] force) {
-    RigidBodies[rb].force_accum[0] += force[0];
-    RigidBodies[rb].force_accum[1] += force[1];
-    RigidBodies[rb].force_accum[2] += force[2];
+    vec3_add_update(RigidBodies[rb].force_accum, force);
+    rb_wake(rb);
 }
 
 inline void rb_add_torque(int rb, int[3] torque) {
-    RigidBodies[rb].torque_accum[0] += torque[0];
-    RigidBodies[rb].torque_accum[1] += torque[1];
-    RigidBodies[rb].torque_accum[2] += torque[2];
+    vec3_add_update(RigidBodies[rb].torque_accum, torque);
+    rb_wake(rb);
 }
 
 inline void rb_add_force_at_body_pt(int rb, int[3] force, int[3] point) {
@@ -68,22 +75,31 @@ inline void rb_add_force_at_body_pt(int rb, int[3] force, int[3] point) {
 
 inline void rb_add_force_at_pt(int rb, int[3] force, int[3] point) {
     int[3] pt;
-    pt[0] = point[0] - RigidBodies[rb].position[0];
-    pt[1] = point[1] - RigidBodies[rb].position[1];
-    pt[2] = point[2] - RigidBodies[rb].position[2];
+    vec3_sub(pt, point, RigidBodies[rb].position);
 
     rb_add_force(rb, force);
 
     int[3] torque;
-    // vec3_cross(torque, force, pt);
     vec3_cross(torque, pt, force);
     rb_add_torque(rb, torque);
+
+    rb_wake(rb);
+}
+
+inline void rb_wake(int rb) {
+    RigidBodies[rb].is_awake = 1;
+    RigidBodies[rb].motion = RB_SLEEP_EPS * 2;
+}
+
+inline void rb_sleep(int rb) {
+    RigidBodies[rb].is_awake = 0;
+    vec3_clear(RigidBodies[rb].velocity);
+    vec3_clear(RigidBodies[rb].rotation);
 }
 
 inline void rb_integrate(int rb, int duration) {
-    RigidBodies[rb].last_frame_acceleration[0] = RigidBodies[rb].acceleration[0];
-    RigidBodies[rb].last_frame_acceleration[1] = RigidBodies[rb].acceleration[1];
-    RigidBodies[rb].last_frame_acceleration[2] = RigidBodies[rb].acceleration[2];
+    if (!RigidBodies[rb].is_awake) return;
+    vec3_copy(RigidBodies[rb].last_frame_acceleration, RigidBodies[rb].acceleration);
     vec3_add_scaled(
         RigidBodies[rb].last_frame_acceleration,
         RigidBodies[rb].force_accum,
@@ -101,24 +117,36 @@ inline void rb_integrate(int rb, int duration) {
     vec3_add_scaled(RigidBodies[rb].rotation, angular_acceleration, duration);
     
     // NOTE: currently using constant damping
-    vec3_scale(RigidBodies[rb].velocity, RigidBodies[rb].velocity, 995);
-    vec3_scale(RigidBodies[rb].rotation, RigidBodies[rb].rotation, 995);
+    vec3_scale_update(RigidBodies[rb].velocity, 995);
+    vec3_scale_update(RigidBodies[rb].rotation, 995);
 
-    vec3_add_scaled(RigidBodies[rb].position, RigidBodies[rb].velocity, duration);
-    quat_add_scaled(RigidBodies[rb].orientation, RigidBodies[rb].rotation, duration);
+    int[3] vel;
+    int[3] rot;
+    vec3_copy(vel, RigidBodies[rb].velocity);
+    vec3_copy(rot, RigidBodies[rb].rotation);
+
+    vec3_add_scaled(RigidBodies[rb].position, vel, duration);
+    quat_add_scaled(RigidBodies[rb].orientation, rot, duration);
     
     rb_calculate_derived(rb);
     rb_clear_accum(rb);
+
+    if (RigidBodies[rb].can_sleep) {
+        int current_motion = vec3_dot(vel, vel) + vec3_dot(rot, rot);
+
+        const int BIAS = 998;
+        int motion = (BIAS*RigidBodies[rb].motion + (1000-BIAS)*current_motion) / 1000;
+
+        if (motion < RB_SLEEP_EPS) rb_sleep(rb);
+        else if (motion > 10 * RB_SLEEP_EPS) motion = 10 * RB_SLEEP_EPS;
+
+        RigidBodies[rb].motion = motion;
+    }
 }
 
 inline void rb_clear_accum(int rb) {
-    RigidBodies[rb].force_accum[0] = 0;
-    RigidBodies[rb].force_accum[1] = 0;
-    RigidBodies[rb].force_accum[2] = 0;
-
-    RigidBodies[rb].torque_accum[0] = 0;
-    RigidBodies[rb].torque_accum[1] = 0;
-    RigidBodies[rb].torque_accum[2] = 0;
+    vec3_clear(RigidBodies[rb].force_accum);
+    vec3_clear(RigidBodies[rb].torque_accum);
 }
 
 inline void rb_calculate_derived(int rb) {
