@@ -44,6 +44,11 @@ inline int vec3_dot(int[3] a, int[3] b) {
     return (a[0] * b[0] + a[1] * b[1] + a[2] * b[2]) / 1000;
 }
 
+// this version divides earlier to avoid overflow, at the cost of accuracy and speed
+inline int vec3_dot_safe(int[3] a, int[3] b) {
+    return a[0] * b[0] / 1000 + a[1] * b[1] / 1000 + a[2] * b[2] / 1000;
+}
+
 inline void vec3_add_scaled(int[3] a, int[3] b, int scale) {
     a[0] += b[0] * scale / 1000;
     a[1] += b[1] * scale / 1000;

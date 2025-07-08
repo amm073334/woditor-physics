@@ -39,6 +39,7 @@ void main() {
     const int MOVE_SPEED = 300;
     const int SENS = 1500;
     const int CURSOR_PICT = 999999;
+    const int EXPLODE_PICT = 999998;
 
     render_init_cube(0, 1000);
     rb_init_cube(0, 1000, 2000);
@@ -214,7 +215,6 @@ void main() {
         if (1 || test || key(152)) {
 
             start_frame(n_rb);
-
             
             {
                 int enter_pressed;
@@ -224,6 +224,8 @@ void main() {
                     explode_center[0] = -10000;
                     explode_center[1] = -500;
                     explode_center[2] = 0;
+                    cmd [150](48,EXPLODE_PICT,0,SCREEN_WIDTH,SCREEN_HEIGHT,1,255,0,0,100,0,0,33554432,0,0,100,90,90)("<SQUARE>");
+                    cmd [150](50,EXPLODE_PICT,15)();
 
                     for (int i = 4; i < n_rb; i += 1) {
                         explode(explode_center, i);
