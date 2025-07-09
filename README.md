@@ -1,0 +1,2 @@
+An implementation of the Cyclone physics engine (https://github.com/idmillington/cyclone-physics) for Wolf RPG Editor, via [wod](https://github.com/amm073334/wod).
+Also includes a hacky 3D renderer to display the results with.
